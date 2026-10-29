@@ -1,0 +1,43 @@
+export const resources = [
+ {name:'teach',kind:'Skill · 分阶教学',repo:'mattpocock/skills',url:'https://github.com/mattpocock/skills/tree/main/skills/productivity/teach',docs:'https://github.com/mattpocock/skills/blob/main/skills/productivity/teach/SKILL.md',fit:'最贴近本指南目标：把学习目标、短课、交互练习、参考资料和学习记录组织成可持续的教学工作区。强调主动回忆和即时反馈。',limit:'需要针对具体项目设计课程与验证代码，不能保证自动生成内容正确。它是教学流程，不是现成 LoongSuite 课程；当前本地安装版本与上游布局可能不同。',adopt:'采用明确任务、分阶课、共享图解组件、测验反馈与本地学习记录；不会把读者尚未完成的课程记成已掌握。',install:'npx skills add mattpocock/skills --skill teach'},
+ {name:'doc-coauthoring',kind:'Skill · 文档协作',repo:'anthropics/skills',url:'https://github.com/anthropics/skills/tree/main/skills/doc-coauthoring',docs:'https://github.com/anthropics/skills/blob/main/skills/doc-coauthoring/SKILL.md',fit:'收集读者背景，迭代结构，再让没有上下文的读者检验文档。适合避免作者“以为已经讲清楚”。',limit:'不是课程生成器，也不校验 Go 示例；它的流程不能替代真实编译与读者练习。',adopt:'采用读者目标、结构迭代和独立读者审查的方法。现有会话已提供背景，不重复要求填写访谈。',install:'npx skills add anthropics/skills --skill doc-coauthoring'},
+ {name:'frontend-design',kind:'Skill · 交互表现',repo:'anthropics/skills',url:'https://github.com/anthropics/skills/tree/main/skills/frontend-design',docs:'https://github.com/anthropics/skills/blob/main/skills/frontend-design/SKILL.md',fit:'确定视觉方向、字体、布局和交互细节，避免只有文字堆叠或通用模板卡片。',limit:'界面质量不等于教学质量；技术正确性、可访问性与测试仍需单独验证。',adopt:'阅读式布局、源码旁注、可操作的因果图解。图解明确标记教学模型。',install:'npx skills add anthropics/skills --skill frontend-design'},
+ {name:'Diátaxis',kind:'方法 · 文档架构',repo:'evildmp/diataxis-documentation-framework',url:'https://diataxis.fr/',docs:'https://diataxis.fr/tutorials/',fit:'区分学习教程、操作指南、参考资料、原理解释。先让读者获得一次具体成功，再逐步引入复杂度。',limit:'四类文档不是强制的学习先后顺序；不要把全部概念与异常情况塞进第一次实验。',adopt:'学习路线承担教程；源码地图与术语表承担参考；实验页承担操作；每章正文解释设计。'},
+ {name:'Google Technical Writing',kind:'方法 · 写作与图解',repo:'google/styleguide',url:'https://developers.google.com/tech-writing',docs:'https://developers.google.com/tech-writing/two/large-docs',fit:'定义读者与前置知识，组织长文，用具体示例、反例和图注降低理解负担。',limit:'主要是技术写作课程与规范，不是可直接安装的 skill，也不是特定项目的源码教程。',adopt:'每章列出前置、产出、实验预期与常见误解；图有可读的文字结论。'},
+ {name:'Starlight',kind:'模板 · Astro 文档站',repo:'withastro/starlight',url:'https://github.com/withastro/starlight',docs:'https://starlight.astro.build/getting-started/',fit:'内容为主的长期文档站。可从现成导航、搜索、国际化、代码块和文档组件开始，减少基础排版工作。',limit:'复杂实验需要自己写交互组件；它提供文档骨架，不替你设计学习进阶。',adopt:'参考侧栏、当前章节导航和读者优先的文档信息层级。',install:'npm create astro@latest -- --template starlight'},
+ {name:'VitePress',kind:'模板 · Markdown + Vue',repo:'vuejs/vitepress',url:'https://github.com/vuejs/vitepress',docs:'https://vitepress.dev/guide/using-vue',fit:'适合 Vue 团队；Markdown 内可以组合 Vue 组件，方便把规则匹配器、上下文图等放进教程。',limit:'需要维护 Vue 组件及构建工具；Markdown 中运行的组件要满足 SSR 约束。',adopt:'借鉴“说明文字紧邻互动组件”的方式。本手册用原生 JS，保持零网站依赖。',install:'npx vitepress init'},
+ {name:'Docusaurus',kind:'模板 · MDX + React',repo:'facebook/docusaurus',url:'https://github.com/facebook/docusaurus',docs:'https://docusaurus.io/docs',fit:'适合 React 团队、多语言与多版本文档；MDX 允许在说明中组合 React 实验组件。',limit:'版本化和插件体系会增加维护量；一个人的首版学习手册不必先引入整套平台。',adopt:'借鉴版本固定与学习章节结构，不复制框架或主题代码。',install:'npx create-docusaurus@latest my-guide classic'},
+ {name:'GitHub Skills / Learn',kind:'方法 · 任务反馈',repo:'skills/introduction-to-github',url:'https://learn.github.com/',docs:'https://github.com/skills',fit:'把学习拆成小任务，用动作和反馈推动进度。适合学习 GitHub 工作流与仓库协作。',limit:'不是专门的源码教材编写 skill，也不能直接生成 LoongSuite 原理课程。',adopt:'每步有实际产物、检查题和能力清单。完成标记由读者自评与测验共同确认。'}
+];
+export const glossary = [
+ ['包 / package','通常对应一个目录中一起编译的 Go 源文件。函数和类型属于包，其他包通过 import 使用它。'],
+ ['模块 / module','把一组包放在一起管理依赖版本的单位，根目录有 go.mod；一个仓库可以有多个模块。'],
+ ['go.mod','模块说明文件，声明模块名、Go 版本要求、外部依赖及替代位置等。它不负责记录函数耗时。'],
+ ['import / require / replace','import 在 Go 文件里导入包；require 在 go.mod 声明模块版本需求；replace 指定替代的版本或本地源码。'],
+ ['构建 / 二进制','构建是准备依赖、编译和链接等生成程序的过程；二进制是生成的可执行程序，不是 .go 文本。'],
+ ['hook / 观察函数','额外执行的 Go 函数，例如在 HTTP 调用进入时开始计时、退出时记录结果。规则负责告诉工具接到哪里。'],
+ ['receiver / 方法接收者','func (t *Transport) RoundTrip(...) 中的 t *Transport。方法 hook 的输入除了普通参数，还需要这个 receiver。'],
+ ['Instrumentation / 插桩','在程序执行路径增加观测逻辑。LoongSuite 在编译时准备这些路径，hook 在运行时执行。'],
+ ['Compile time / Runtime','构建期间与程序执行期间。规则命中属于前者，Span 关联与导出属于后者。'],
+ ['AST / DST','AST 表示程序语法结构；dave/dst 在此基础上携带装饰信息，帮助保留注释等源码布局。'],
+ ['Trampoline / 跳板','工具生成的中间调用层，把目标函数与 hook 接起来，处理参数、返回值和跳过原调用的控制。'],
+ ['CallContext','一次被拦截调用的参数、返回值、hook 共享状态容器；它不是 context.Context。'],
+ ['context.Context','Go 显式传递的请求作用域对象，携带 deadline、取消信号和值；OTel 把 Span 存在其中。'],
+ ['GLS','探针实现的 goroutine 局部状态，用于适用场景的上下文桥接；不是 Go 原生公共上下文 API。'],
+ ['G / M / P','Go 运行时中 goroutine、OS 线程与调度所需资源的概念。理解调度不等于获得自动 Trace 继承。'],
+ ['Trace ID / Span ID','前者标识一条追踪，后者标识一个操作节点。相同 Trace ID 不保证 ParentSpanID 正确。'],
+ ['SpanContext','可跨进程传播的 TraceID、SpanID、flags、TraceState 等信息，不是整个 SDK Span 对象。'],
+ ['Propagator / Carrier','传播器定义 Inject/Extract；载体是 HTTP headers、消息属性或其他承载序列化上下文的媒介。'],
+ ['W3C / B3','传播格式。W3C 常用 traceparent；B3 可用单个 b3 头或多个 X-B3-* 头。提取优先级需明确配置。'],
+ ['TracerProvider / SDK','Provider 提供 Tracer；SDK 负责采样、Span 处理器与导出等实现，不等于后端存储。'],
+ ['Instrumentation scope','标识埋点库及版本的作用域。它是排查 Span 来源的线索，不是通用去重令牌。'],
+ ['Sampler / Processor / Exporter','分别决定记录/采样、处理与批量组织、发送数据。任一环节正常都不单独证明查询可见。'],
+ ['Head / Tail sampling','前者在创建 Span 时决策，后者在 Collector 汇集数据后决策。Tail sampling 不能恢复上游从未导出的 Span。'],
+ ['go:linkname','Go 编译器指令，用于连接符号名。它绕过普通包引用边界，必须理解签名、链接限制和版本风险。'],
+ ['-toolexec','go 命令的工具执行包装入口；包装器接收真实工具路径及参数，必须正确处理版本探测与退出码。'],
+ ['Module / Package','Module 是依赖和版本管理单元，package 是编译与命名空间单元；两者不是一对一。'],
+ ['Version fixture','绑定库版本和输入的最小测试项目；用于证明规则命中、签名兼容和运行语义，而不是只证明 JSON 能解析。'],
+ ['Span Link','表达因果关联而不强制单一父节点。适用于批量、汇聚或长延迟任务等场景。'],
+ ['Zero source change','目标业务源码可不手写探针；构建流程、注入依赖、二进制行为与遥测成本仍会改变。']
+];
+export const lessonTemplate = `# 第 N 课：用一个动作表达目标\n\n## 完成后你能做什么\n- 可验证的能力，不写“了解某概念”\n\n## 你需要先会什么\n- 对应前置章节 / Go 知识\n\n## 为什么需要它\n用一个真实故障说明缺少此能力会发生什么。\n\n## 最小模型\n一张只表达一个因果关系的图；紧邻文字写出结论。\n\n## 先做一次\n1. 明确所在目录与版本。\n2. 给出可复制命令。\n3. 展示实际输出，并说明输出中的哪一行证明了目标。\n\n## 对照与反例\n只改变一个变量：ctx / 版本 / hook / carrier / sampler。\n\n## 回到源码\n固定 commit 的文件、符号和行号；提出一个阅读问题。\n\n## 自己改一次\n给出任务、约束、成功断言与参考答案。\n\n## 过关检查\n读者能解释原因、复现实验、修改代码并证明没有回归。\n\n## 来源与局限\n上游文档、代码证据；哪些是模型，哪些实际运行过。`;

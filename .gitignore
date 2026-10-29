@@ -1,0 +1,21 @@
+research/
+qa/
+*.tar.gz
+labs/**/bin/
+labs/**/.otel-build/
+labs/**/.bin/
+labs/**/.otel*/
+labs/**/.tooling/
+labs/**/toolexec.log
+labs/**/instrumented
+.DS_Store
+
+# Local hosting, credentials and learning state
+.openai/
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+node_modules/
+learning-records/

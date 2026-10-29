@@ -1,0 +1,417 @@
+export const sourceMap = [
+  {
+    "id": "go-mod",
+    "title": "版本与多 module",
+    "path": "go.mod",
+    "line": 1,
+    "symbol": "module github.com/alibaba/loongsuite-go; go 1.25.0",
+    "role": "工具仓库要求 Go 1.25；pkg/rules/* 也各自是 hook module",
+    "question": "为什么规则不能直接放进主 module？",
+    "next": "先运行 go env GOTOOLCHAIN 与 go list -m all",
+    "url": "https://github.com/alibaba/loongsuite-go/blob/cac400935add57d8219122ba32857b8f55ac6eb1/go.mod",
+    "snippet": "   1  module github.com/alibaba/loongsuite-go\n   2  \n   3  go 1.25.0\n   4  \n   5  require (\n   6  \tgithub.com/dave/dst v0.27.3\n   7  \tgithub.com/docker/docker v28.2.2+incompatible\n   8  \tgithub.com/docker/go-connections v0.5.0\n   9  \tgithub.com/google/uuid v1.6.0\n  10  \tgithub.com/stretchr/testify v1.11.1\n  11  \tgithub.com/testcontainers/testcontainers-go v0.38.0\n  12  \tgithub.com/testcontainers/testcontainers-go/modules/k3s v0.38.0\n  13  \tgithub.com/testcontainers/testcontainers-go/modules/mysql v0.37.0\n  14  \tgo.opentelemetry.io/otel/sdk/metric v1.45.0\n  15  \tgolang.org/x/mod v0.24.0\n  16  \tgolang.org/x/sync v0.14.0\n  17  \tgolang.org/x/tools v0.33.0\n  18  )\n  19  \n  20  require (\n  21  \tdario.cat/mergo v1.0.2 // indirect\n  22  \tgithub.com/Azure/go-ansiterm v0.0.0-20250102033503-faa5f7b0171c // indirect\n  23  \tgithub.com/Microsoft/go-winio v0.6.2 // indirect\n  24  \tgithub.com/cenkalti/backoff/v4 v4.3.0 // indirect\n  25  \tgithub.com/cespare/xxhash/v2 v2.3.0 // indirect\n  26  \tgithub.com/containerd/errdefs v1.0.0 // indirect\n  27  \tgithub.com/containerd/errdefs/pkg v0.3.0 // indirect\n  28  \tgithub.com/containerd/log v0.1.0 // indirect\n  29  \tgithub.com/containerd/platforms v0.2.1 // indirect\n  30  \tgithub.com/cpuguy83/dockercfg v0.3.2 // indirect\n  31  \tgithub.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc // indirect"
+  },
+  {
+    "id": "cli",
+    "title": "otel 命令入口",
+    "path": "tool/otel/main.go",
+    "line": 112,
+    "symbol": "main",
+    "role": "解析 otel go build/remix 命令并准备临时构建目录",
+    "question": "前缀命令如何仍然调用标准 go？",
+    "next": "跟踪 initEnv 到 preprocess 与 instrument",
+    "url": "https://github.com/alibaba/loongsuite-go/blob/cac400935add57d8219122ba32857b8f55ac6eb1/tool/otel/main.go#L112",
+    "snippet": " 110  }\n 111  \n 112  func main() {\n 113  \tif len(os.Args) < 2 {\n 114  \t\tprintUsage()\n 115  \t\tos.Exit(0)\n 116  \t}\n 117  \n 118  \terr := initEnv()\n 119  \tif err != nil {\n 120  \t\tex.Fatal(err)\n 121  \t}\n 122  \n 123  \tsubcmd := os.Args[1]\n 124  \tswitch subcmd {\n 125  \tcase SubcommandVersion:\n 126  \t\tconfig.PrintVersion()\n 127  \tcase SubcommandSet:\n 128  \t\terr = config.Configure()\n 129  \tcase SubcommandGo:\n 130  \t\terr = preprocess.Preprocess()\n 131  \tcase SubcommandRemix:\n 132  \t\terr = instrument.Toolexec()\n 133  \tdefault:\n 134  \t\tprintUsage()\n 135  \t}\n 136  \tif err != nil {\n 137  \t\tex.Fatal(err)\n 138  \t}\n 139  }\n 140  "
+  },
+  {
+    "id": "preprocess",
+    "title": "构建前置阶段",
+    "path": "tool/preprocess/preprocess.go",
+    "line": 249,
+    "symbol": "Preprocess",
+    "role": "按规则匹配、注入依赖并在最后启动编译",
+    "question": "为什么规则筛选和依赖注入必须发生在编译前？",
+    "next": "阅读 matchRules、newDeps 与 runBuildWithToolexec",
+    "url": "https://github.com/alibaba/loongsuite-go/blob/cac400935add57d8219122ba32857b8f55ac6eb1/tool/preprocess/preprocess.go#L249",
+    "snippet": " 247  }\n 248  \n 249  func Preprocess() error {\n 250  \t// Make sure the project is modularized otherwise we cannot proceed\n 251  \terr := precheck()\n 252  \tif err != nil {\n 253  \t\treturn err\n 254  \t}\n 255  \n 256  \tdp := newDepProcessor()\n 257  \n 258  \terr = dp.init()\n 259  \tif err != nil {\n 260  \t\treturn err\n 261  \t}\n 262  \tdefer func() { dp.postProcess() }()\n 263  \t{\n 264  \t\tdefer util.PhaseTimer(\"Preprocess\")()\n 265  \t\tdefer dp.keepForDebugs()\n 266  \n 267  \t\t// Backup go.mod and add additional replace directives for the pkg module\n 268  \t\terr = dp.updateGoMod()\n 269  \t\tif err != nil {\n 270  \t\t\treturn err\n 271  \t\t}\n 272  \n 273  \t\t// Two round of rule matching\n 274  \t\t//    {prepare->refresh}\n 275  \t\t//        1st match\n 276  \t\t//    {prepare->refresh}\n 277  \t\t//        2nd match\n 278  \t\t//    {prepare->refresh}\n 279  \t\t// Let's break it down a little bit. We first prepare the rule import,"
+  },
+  {
+    "id": "toolexec",
+    "title": "Go 编译器代理",
+    "path": "tool/preprocess/preprocess.go",
+    "line": 158,
+    "symbol": "runBuildWithToolexec",
+    "role": "给 go build 设置 -toolexec，让每次编译器调用经过 otel 工具",
+    "question": "go build 为什么会重复调用编译器？",
+    "next": "记录一次真实 go build -x 输出",
+    "url": "https://github.com/alibaba/loongsuite-go/blob/cac400935add57d8219122ba32857b8f55ac6eb1/tool/preprocess/preprocess.go#L158",
+    "snippet": " 156  }\n 157  \n 158  func runBuildWithToolexec(goBuildCmd []string) error {\n 159  \texe, err := os.Executable()\n 160  \tif err != nil {\n 161  \t\treturn ex.Wrap(err)\n 162  \t}\n 163  \t// go build/install\n 164  \targs := []string{}\n 165  \targs = append(args, goBuildCmd[:2]...)\n 166  \t// Remix toolexec\n 167  \targs = append(args, \"-toolexec=\"+exe+\" \"+CompileRemix)\n 168  \n 169  \t// Leave the temporary compilation directory\n 170  \targs = append(args, util.BuildWork)\n 171  \tvar goCachePath string\n 172  \tcache := config.GetConf().GoCache\n 173  \tif cache != \"\" {\n 174  \t\tgoCachePath = cache\n 175  \t} else {\n 176  \t\t// Force rebuilding\n 177  \t\targs = append(args, \"-a\")\n 178  \t}\n 179  \n 180  \tif config.GetConf().Debug {\n 181  \t\t// Disable compiler optimizations for debugging mode\n 182  \t\targs = append(args, \"-gcflags=all=-N -l\")\n 183  \t}\n 184  \n 185  \t// Append additional build arguments provided by the user\n 186  \targs = append(args, goBuildCmd[2:]...)\n 187  \n 188  \tutil.Log(\"Run toolexec build: %v\", args)"
+  },
+  {
+    "id": "deps",
+    "title": "为观察代码补依赖",
+    "path": "tool/preprocess/add.go",
+    "line": 36,
+    "symbol": "addDependency",
+    "role": "读取业务 go.mod，检查并补齐缺失的 require / replace 声明",
+    "question": "工具已经能运行，为什么业务还需要解析新增观察代码的依赖？",
+    "next": "先说出输入、变化和原因，再看 Preprocess 如何连接这些步骤",
+    "url": "https://github.com/alibaba/loongsuite-go/blob/cac400935add57d8219122ba32857b8f55ac6eb1/tool/preprocess/add.go#L36",
+    "snippet": "  36  func (dp *DepProcessor) addDependency(gomod string, dependencies []Dependency) error {\n  37  \tmodfile, err := parseGoMod(gomod)\n  38  \tif err != nil {\n  39  \t\treturn err\n  40  \t}\n  41  \t// For each dependency, check if it is already in the go.mod file and add\n  42  \t// it using require directive. If the dependency specifies a replace path,\n  43  \t// then further add a replace directive if it is not already in the go.mod\n  44  \tchanged := false\n  45  \tfor _, dependency := range dependencies {\n  46  \t\talreadyRequire := false\n  47  \t\tfor _, r := range modfile.Require {\n  48  \t\t\tif r.Mod.Path == dependency.ImportPath {\n  49  \t\t\t\talreadyRequire = true\n  50  \t\t\t\tbreak\n  51  \t\t\t}\n  52  \t\t}\n  53  \t\tif !alreadyRequire {\n  54  \t\t\terr = modfile.AddRequire(dependency.ImportPath, dependency.Version)\n  55  \t\t\tif err != nil {\n  56  \t\t\t\treturn ex.Wrap(err)\n  57  \t\t\t}\n  58  \t\t\tchanged = true\n  59  \t\t\tutil.Log(\"Add require dependency %s %s\",\n  60  \t\t\t\tdependency.ImportPath, dependency.Version)\n  61  \t\t}\n  62  \t\tif dependency.Replace {\n  63  \t\t\talreadyReplace := false\n  64  \t\t\tfor _, r := range modfile.Replace {\n  65  \t\t\t\tif r.Old.Path == dependency.ImportPath {\n  66  \t\t\t\t\talreadyReplace = true\n  67  \t\t\t\t\tbreak\n  68  \t\t\t\t}\n  69  \t\t\t}\n  70  \t\t\tif !alreadyReplace {\n  71  \t\t\t\terr = modfile.AddReplace(dependency.ImportPath, \"\",\n  72  \t\t\t\t\tdependency.ReplacePath, dependency.ReplaceVersion)\n  73  \t\t\t\tif err != nil {\n  74  \t\t\t\t\treturn ex.Wrap(err)\n  75  \t\t\t\t}\n  76  \t\t\t\tchanged = true\n  77  \t\t\t\tutil.Log(\"Add replace dependency %s %s => %s %s\",\n  78  \t\t\t\t\tdependency.ImportPath, dependency.Version,\n  79  \t\t\t\t\tdependency.ReplacePath, dependency.ReplaceVersion)\n  80  \t\t\t}\n  81  \t\t}\n  82  \t}\n  83  \t// Once all dependencies are added and write back to go.mod\n  84  \tif changed {\n  85  \t\terr = writeGoMod(gomod, modfile)\n  86  \t\tif err != nil {\n  87  \t\t\treturn err\n  88  \t\t}\n  89  \t}\n  90  \treturn nil\n  91  }"
+  },
+  {
+    "id": "rule-load",
+    "title": "规则加载",
+    "path": "tool/preprocess/match.go",
+    "line": 79,
+    "symbol": "loadRuleFile/loadDefaultRules",
+    "role": "读取 JSON 规则并按包依赖筛选",
+    "question": "规则文件如何变成 InstRule？",
+    "next": "对照 tool/data/rules/nethttp.json",
+    "url": "https://github.com/alibaba/loongsuite-go/blob/cac400935add57d8219122ba32857b8f55ac6eb1/tool/preprocess/match.go#L79",
+    "snippet": "  77  }\n  78  \n  79  func loadRuleFile(path string) ([]rules.InstRule, error) {\n  80  \tcontent, err := util.ReadFile(path)\n  81  \tif err != nil {\n  82  \t\tcurrentDir, _ := os.Getwd()\n  83  \t\treturn nil, ex.Wrapf(err, \"pwd %s\", currentDir)\n  84  \t}\n  85  \treturn loadRuleRaw(content)\n  86  }\n  87  \n  88  func loadRuleRaw(content string) ([]rules.InstRule, error) {\n  89  \tvar rawMessages []json.RawMessage\n  90  \tif err := json.Unmarshal([]byte(content), &rawMessages); err != nil {\n  91  \t\treturn nil, ex.Wrap(err)\n  92  \t}\n  93  \n  94  \trulesSlice := make([]rules.InstRule, 0, len(rawMessages))\n  95  \tfor _, raw := range rawMessages {\n  96  \t\tvar obj map[string]interface{}\n  97  \t\tif err := json.Unmarshal(raw, &obj); err != nil {\n  98  \t\t\treturn nil, ex.Wrap(err)\n  99  \t\t}\n 100  \n 101  \t\tvar rule rules.InstRule\n 102  \t\tif _, ok := obj[\"Function\"]; ok {\n 103  \t\t\tvar funcRule rules.InstFuncRule\n 104  \t\t\tif err := json.Unmarshal(raw, &funcRule); err != nil {\n 105  \t\t\t\treturn nil, ex.Wrap(err)\n 106  \t\t\t}\n 107  \t\t\trule = &funcRule\n 108  \t\t} else if _, ok := obj[\"StructType\"]; ok {\n 109  \t\t\tvar structRule rules.InstStructRule"
+  },
+  {
+    "id": "rule-model",
+    "title": "规则数据模型",
+    "path": "tool/rules/base.go",
+    "line": 32,
+    "symbol": "InstRule",
+    "role": "统一承载版本、Go 版本、import path 与 hook 路径约束",
+    "question": "Go 版本范围和库版本范围有什么区别？",
+    "next": "阅读 FuncRule、StructRule、FileRule",
+    "url": "https://github.com/alibaba/loongsuite-go/blob/cac400935add57d8219122ba32857b8f55ac6eb1/tool/rules/base.go#L32",
+    "snippet": "  30  // - InstFileRule: Instrumentation rule for a specific file\n  31  \n  32  type InstRule interface {\n  33  \tGetVersion() string    // GetVersion returns the version of the rule\n  34  \tGetGoVersion() string  // GetGoVersion returns the go version of the rule\n  35  \tGetImportPath() string // GetImportPath returns import path of the rule\n  36  \tGetPath() string       // GetPath returns the local path of the rule\n  37  \tSetPath(path string)   // SetPath sets the local path of the rule\n  38  \tString() string        // String returns string representation of rule\n  39  }\n  40  \n  41  type InstBaseRule struct {\n  42  \t// Local path of the rule, it designates where we can found the hook code\n  43  \tPath string `json:\"Path,omitempty\"`\n  44  \t// Version of the rule, e.g. \"[1.9.1,1.9.2)\" or \"\", it designates the\n  45  \t// version range of rule, all other version will not be instrumented\n  46  \tVersion string `json:\"Version,omitempty\"`\n  47  \t// Go version of the rule, e.g. \"[1.22.0,)\" or \"\", it designates the go\n  48  \t// version range of rule, all other go version will not be instrumented\n  49  \tGoVersion string `json:\"GoVersion,omitempty\"`\n  50  \t// Import path of the rule, e.g. \"github.com/gin-gonic/gin\", it designates\n  51  \t// the import path of rule, all other import path will not be instrumented\n  52  \tImportPath string `json:\"ImportPath,omitempty\"`\n  53  }\n  54  \n  55  func (rule *InstBaseRule) GetVersion() string    { return rule.Version }\n  56  func (rule *InstBaseRule) GetGoVersion() string  { return rule.GoVersion }\n  57  func (rule *InstBaseRule) GetImportPath() string { return rule.ImportPath }\n  58  func (rule *InstBaseRule) GetPath() string       { return rule.Path }\n  59  func (rule *InstBaseRule) SetPath(path string)   { rule.Path = path }\n  60  "
+  },
+  {
+    "id": "bundle",
+    "title": "规则集合",
+    "path": "tool/rules/bundle.go",
+    "line": 22,
+    "symbol": "InstRuleSet",
+    "role": "把一个编译 action 命中的函数、结构体、文件规则聚合起来",
+    "question": "为什么一个 package 选择一个 rule set？",
+    "next": "跟踪 instrument.match",
+    "url": "https://github.com/alibaba/loongsuite-go/blob/cac400935add57d8219122ba32857b8f55ac6eb1/tool/rules/bundle.go#L22",
+    "snippet": "  20  \n  21  // InstRuleSet is a collection of rules that matched with one compilation action\n  22  type InstRuleSet struct {\n  23  \tPackageName string\n  24  \tImportPath  string\n  25  \tFileRules   []*InstFileRule\n  26  \tFuncRules   map[string][]*InstFuncRule\n  27  \tStructRules map[string][]*InstStructRule\n  28  \tHasCgo      bool\n  29  }\n  30  \n  31  func NewInstRuleSet(importPath string) *InstRuleSet {\n  32  \treturn &InstRuleSet{\n  33  \t\tPackageName: \"\",\n  34  \t\tImportPath:  importPath,\n  35  \t\tFileRules:   make([]*InstFileRule, 0),\n  36  \t\tFuncRules:   make(map[string][]*InstFuncRule),\n  37  \t\tStructRules: make(map[string][]*InstStructRule),\n  38  \t\tHasCgo:      false,\n  39  \t}\n  40  }\n  41  \n  42  func (rb *InstRuleSet) String() string {\n  43  \tbs, _ := json.Marshal(rb)\n  44  \treturn string(bs)\n  45  }\n  46  \n  47  func (rb *InstRuleSet) IsValid() bool {\n  48  \treturn rb != nil &&\n  49  \t\t(len(rb.FileRules) > 0 ||\n  50  \t\t\tlen(rb.FuncRules) > 0 ||\n  51  \t\t\tlen(rb.StructRules) > 0)\n  52  }"
+  },
+  {
+    "id": "match",
+    "title": "编译 action 匹配",
+    "path": "tool/instrument/match.go",
+    "line": 44,
+    "symbol": "match",
+    "role": "从编译器参数识别目标包并选择版本匹配的规则集",
+    "question": "规则优先级和版本区间怎样决定命中？",
+    "next": "修改一个范围并运行 rule tests",
+    "url": "https://github.com/alibaba/loongsuite-go/blob/cac400935add57d8219122ba32857b8f55ac6eb1/tool/instrument/match.go#L44",
+    "snippet": "  42  }\n  43  \n  44  func (rp *RuleProcessor) match(allSet []*rules.InstRuleSet, args []string) *rules.InstRuleSet {\n  45  \t// One package can only be matched with one rule set, so it's safe to return\n  46  \t// the first matched rule set.\n  47  \timportPath := util.FindFlagValue(args, \"-p\")\n  48  \tutil.Assert(importPath != \"\", \"sanity check\")\n  49  \tfor _, rset := range allSet {\n  50  \t\tif rset.ImportPath == importPath {\n  51  \t\t\treturn rset\n  52  \t\t}\n  53  \t}\n  54  \treturn nil\n  55  }\n  56  "
+  },
+  {
+    "id": "instrument",
+    "title": "AST 插桩总流程",
+    "path": "tool/instrument/instrument.go",
+    "line": 180,
+    "symbol": "instrument",
+    "role": "按规则定位文件、解析 AST、应用函数/结构体/文件改写",
+    "question": "为什么使用 dave/dst 而不是直接字符串替换？",
+    "next": "阅读 apply_func.go",
+    "url": "https://github.com/alibaba/loongsuite-go/blob/cac400935add57d8219122ba32857b8f55ac6eb1/tool/instrument/instrument.go#L180",
+    "snippet": " 178  }\n 179  \n 180  func (rp *RuleProcessor) instrument(rset *rules.InstRuleSet) (err error) {\n 181  \thasFuncRule := false\n 182  \t// Apply file rules first because they can introduce new files that used\n 183  \t// by other rules such as raw rules\n 184  \tfor _, rule := range rset.FileRules {\n 185  \t\terr := rp.applyFileRule(rule, rset.PackageName)\n 186  \t\tif err != nil {\n 187  \t\t\treturn err\n 188  \t\t}\n 189  \t}\n 190  \tfor file, rs := range groupRules(rset) {\n 191  \t\t// Group rules by file, then parse the target file once\n 192  \t\tutil.Assert(filepath.IsAbs(file), \"file path must be absolute\")\n 193  \t\tfile = rp.findSourceFile(rset, file)\n 194  \t\troot, err := rp.parseAst(file)\n 195  \t\tif err != nil {\n 196  \t\t\treturn err\n 197  \t\t}\n 198  \t\t// Apply the rules to the target file\n 199  \t\trp.trampolineJumps = make([]*TJump, 0)\n 200  \t\tfor _, r := range rs {\n 201  \t\t\tswitch rt := r.(type) {\n 202  \t\t\tcase *rules.InstFuncRule:\n 203  \t\t\t\terr1 := rp.applyFuncRule(rt, root)\n 204  \t\t\t\tif err1 != nil {\n 205  \t\t\t\t\treturn err1\n 206  \t\t\t\t}\n 207  \t\t\t\thasFuncRule = true\n 208  \t\t\tcase *rules.InstStructRule:\n 209  \t\t\t\terr1 := rp.applyStructRule(rt, root)\n 210  \t\t\t\tif err1 != nil {"
+  },
+  {
+    "id": "func-ast",
+    "title": "函数 AST 改写",
+    "path": "tool/instrument/apply_func.go",
+    "line": 178,
+    "symbol": "createTJumpIf/insertTJump",
+    "role": "在目标函数开头插入 trampoline jump，并收集参数与返回值",
+    "question": "如何保证命名/匿名返回值都能 hook？",
+    "next": "画出生成代码并跑 nethttp fixture",
+    "url": "https://github.com/alibaba/loongsuite-go/blob/cac400935add57d8219122ba32857b8f55ac6eb1/tool/instrument/apply_func.go#L178",
+    "snippet": " 176  }\n 177  \n 178  func (rp *RuleProcessor) createTJumpIf(t *rules.InstFuncRule, funcDecl *dst.FuncDecl,\n 179  \targs []string, retVals []string,\n 180  ) *dst.IfStmt {\n 181  \tvarSuffix := util.Crc32(t.String())\n 182  \tif config.GetConf().Verbose {\n 183  \t\tutil.Log(\"varSuffix: %s for %s\", varSuffix, t.String())\n 184  \t}\n 185  \n 186  \t// Generate the trampoline-jump-if. N.B. Note that future optimization pass\n 187  \t// heavily depends on the structure of trampoline-jump-if. Any change in it\n 188  \t// should be carefully examined.\n 189  \targsToOnEnter := createHookArgs(args)\n 190  \targsToOnExit := createHookArgs(retVals)\n 191  \targCallContext := ast.Ident(trampolineCallContextName + varSuffix)\n 192  \targsToOnExit = append([]dst.Expr{argCallContext}, argsToOnExit...)\n 193  \tonEnterCall := ast.CallTo(makeName(t, funcDecl, true), nil, argsToOnEnter)\n 194  \tonExitCall := ast.CallTo(makeName(t, funcDecl, false), nil, argsToOnExit)\n 195  \ttjumpInit := ast.DefineStmts(\n 196  \t\tast.Exprs(\n 197  \t\t\tast.Ident(trampolineCallContextName+varSuffix),\n 198  \t\t\tast.Ident(trampolineSkipName+varSuffix),\n 199  \t\t),\n 200  \t\tast.Exprs(onEnterCall),\n 201  \t)\n 202  \ttjumpCond := ast.Ident(trampolineSkipName + varSuffix)\n 203  \ttjumpReturn := make([]dst.Expr, 0)\n 204  \tfor _, retVal := range retVals {\n 205  \t\ttjumpReturn = append(tjumpReturn, ast.Ident(retVal))\n 206  \t}\n 207  \ttjumpBody := ast.BlockStmts(\n 208  \t\tast.ExprStmt(onExitCall),"
+  },
+  {
+    "id": "trampoline",
+    "title": "Trampoline 三层模型",
+    "path": "tool/instrument/trampoline.go",
+    "line": 76,
+    "symbol": "materializeTemplate",
+    "role": "原函数跳到生成 trampoline，再调用 onEnter/onExit hook",
+    "question": "为什么 trampoline 不能 import 包或 panic？",
+    "next": "阅读 impl.tmpl 并观察生成源码",
+    "url": "https://github.com/alibaba/loongsuite-go/blob/cac400935add57d8219122ba32857b8f55ac6eb1/tool/instrument/trampoline.go#L76",
+    "snippet": "  74  var trampolineTemplate string\n  75  \n  76  func (rp *RuleProcessor) materializeTemplate() error {\n  77  \t// Read trampoline template and materialize onEnter and onExit function\n  78  \t// declarations based on that\n  79  \tp := ast.NewAstParser()\n  80  \tastRoot, err := p.ParseSource(trampolineTemplate)\n  81  \tif err != nil {\n  82  \t\treturn err\n  83  \t}\n  84  \n  85  \trp.varDecls = make([]dst.Decl, 0)\n  86  \trp.callCtxMethods = make([]*dst.FuncDecl, 0)\n  87  \tfor _, node := range astRoot.Decls {\n  88  \t\t// Materialize function declarations\n  89  \t\tif decl, ok := node.(*dst.FuncDecl); ok {\n  90  \t\t\tif decl.Name.Name == trampolineOnEnterName {\n  91  \t\t\t\trp.onEnterHookFunc = decl\n  92  \t\t\t\trp.addDecl(decl)\n  93  \t\t\t} else if decl.Name.Name == trampolineOnExitName {\n  94  \t\t\t\trp.onExitHookFunc = decl\n  95  \t\t\t\trp.addDecl(decl)\n  96  \t\t\t} else if ast.HasReceiver(decl) {\n  97  \t\t\t\t// We know exactly this is CallContextImpl method\n  98  \t\t\t\tt := decl.Recv.List[0].Type.(*dst.StarExpr).X.(*dst.Ident).Name\n  99  \t\t\t\tutil.Assert(t == trampolineCallContextImplType, \"sanity check\")\n 100  \t\t\t\trp.callCtxMethods = append(rp.callCtxMethods, decl)\n 101  \t\t\t\trp.addDecl(decl)\n 102  \t\t\t}\n 103  \t\t}\n 104  \t\t// Materialize variable declarations\n 105  \t\tif decl, ok := node.(*dst.GenDecl); ok {\n 106  \t\t\t// No further processing for variable declarations, just append them"
+  },
+  {
+    "id": "call-context",
+    "title": "CallContext API",
+    "path": "pkg/api/api.go",
+    "line": 27,
+    "symbol": "CallContext",
+    "role": "在 enter/exit 间传递跳过标记、数据、原参数和返回值",
+    "question": "SetParam 为什么可能改变业务行为？",
+    "next": "实现一个只读属性 hook",
+    "url": "https://github.com/alibaba/loongsuite-go/blob/cac400935add57d8219122ba32857b8f55ac6eb1/pkg/api/api.go#L27",
+    "snippet": "  25  \n  26  // !!! pkg/api/api.go will auto-sync to tool/internal/instrument/api.tmpl\n  27  type CallContext interface {\n  28  \t// Skip the original function call\n  29  \tSetSkipCall(bool)\n  30  \t// Check if the original function call should be skipped\n  31  \tIsSkipCall() bool\n  32  \t// Set the data field, can be used to pass information between OnEnter&OnExit\n  33  \tSetData(interface{})\n  34  \t// Get the data field, can be used to pass information between OnEnter&OnExit\n  35  \tGetData() interface{}\n  36  \t// Get the map data field by key\n  37  \tGetKeyData(key string) interface{}\n  38  \t// Set the map data field by key\n  39  \tSetKeyData(key string, val interface{})\n  40  \t// Has the map data field by key\n  41  \tHasKeyData(key string) bool\n  42  \t// Get the original function parameter at index idx\n  43  \tGetParam(idx int) interface{}\n  44  \t// Change the original function parameter at index idx\n  45  \tSetParam(idx int, val interface{})\n  46  \t// Get the original function return value at index idx\n  47  \tGetReturnVal(idx int) interface{}\n  48  \t// Change the original function return value at index idx\n  49  \tSetReturnVal(idx int, val interface{})\n  50  \t// Get the original function name\n  51  \tGetFuncName() string\n  52  \t// Get the package name of the original function\n  53  \tGetPackageName() string\n  54  \t// Number of original function parameters\n  55  \tGetParamCount() int\n  56  \t// Number of original function return values\n  57  \tGetReturnValCount() int"
+  },
+  {
+    "id": "call-context-impl",
+    "title": "测试用 CallContext 实现",
+    "path": "pkg/api/impl.go",
+    "line": 18,
+    "symbol": "CallContextImpl",
+    "role": "用简化字段实现接口供测试；真实插入目标包的代码来自 impl.tmpl 与 trampoline.go",
+    "question": "文件说明仅用于测试，真实生成实现应该去哪里找？",
+    "next": "比较 tool/instrument/impl.tmpl 与 trampoline.go 的生成和重命名路径",
+    "url": "https://github.com/alibaba/loongsuite-go/blob/cac400935add57d8219122ba32857b8f55ac6eb1/pkg/api/impl.go#L18",
+    "snippet": "  16  \n  17  // For testing purpose only\n  18  type CallContextImpl struct {\n  19  \tParams     []interface{}\n  20  \tReturnVals []interface{}\n  21  \tSkipCall   bool\n  22  \tData       interface{}\n  23  }\n  24  \n  25  func (c *CallContextImpl) SetSkipCall(skip bool)    { c.SkipCall = skip }\n  26  func (c *CallContextImpl) IsSkipCall() bool         { return c.SkipCall }\n  27  func (c *CallContextImpl) SetData(data interface{}) { c.Data = data }\n  28  func (c *CallContextImpl) GetData() interface{}     { return c.Data }\n  29  func (c *CallContextImpl) GetKeyData(key string) interface{} {\n  30  \tif c.Data == nil {\n  31  \t\treturn nil\n  32  \t}\n  33  \treturn c.Data.(map[string]interface{})[key]\n  34  }\n  35  func (c *CallContextImpl) SetKeyData(key string, val interface{}) {\n  36  \tif c.Data == nil {\n  37  \t\tc.Data = make(map[string]interface{})\n  38  \t}\n  39  \tc.Data.(map[string]interface{})[key] = val\n  40  }\n  41  \n  42  func (c *CallContextImpl) HasKeyData(key string) bool {\n  43  \tif c.Data == nil {\n  44  \t\treturn false\n  45  \t}\n  46  \t_, ok := c.Data.(map[string]interface{})[key]\n  47  \treturn ok\n  48  }"
+  },
+  {
+    "id": "linkname",
+    "title": "跨包符号桥",
+    "path": "pkg/rules/runtime/runtime_linker.go",
+    "line": 27,
+    "symbol": "go:linkname otel_*",
+    "role": "把生成代码与运行时 context/GLS 函数连接起来",
+    "question": "linkname 为什么受 Go 版本和 ABI 影响？",
+    "next": "对照规则 runtime go.mod 与 toolchain",
+    "url": "https://github.com/alibaba/loongsuite-go/blob/cac400935add57d8219122ba32857b8f55ac6eb1/pkg/rules/runtime/runtime_linker.go#L27",
+    "snippet": "  25  var ExitHook func()\n  26  \n  27  //go:linkname otel_get_trace_context_from_gls otel_get_trace_context_from_gls\n  28  var otel_get_trace_context_from_gls = _otel_gls_get_trace_context_impl\n  29  \n  30  //go:linkname otel_get_baggage_container_from_gls otel_get_baggage_container_from_gls\n  31  var otel_get_baggage_container_from_gls = _otel_gls_get_baggage_container_impl\n  32  \n  33  //go:linkname otel_set_trace_context_to_gls otel_set_trace_context_to_gls\n  34  var otel_set_trace_context_to_gls = _otel_gls_set_trace_context_impl\n  35  \n  36  //go:linkname otel_set_baggage_container_to_gls otel_set_baggage_container_to_gls\n  37  var otel_set_baggage_container_to_gls = _otel_gls_set_baggage_container_impl\n  38  \n  39  //go:linkname otel_sync_producer_call_depth_enter otel_sync_producer_call_depth_enter\n  40  var otel_sync_producer_call_depth_enter = _otel_sync_producer_call_depth_enter_impl\n  41  \n  42  //go:linkname otel_sync_producer_call_depth_exit otel_sync_producer_call_depth_exit\n  43  var otel_sync_producer_call_depth_exit = _otel_sync_producer_call_depth_exit_impl\n  44  \n  45  //go:linkname otel_sync_producer_call_depth_active otel_sync_producer_call_depth_active\n  46  var otel_sync_producer_call_depth_active = _otel_sync_producer_call_depth_active_impl\n  47  \n  48  //go:nosplit\n  49  func _otel_gls_get_trace_context_impl() interface{} {\n  50  \treturn getg().m.curg.otel_trace_context\n  51  }\n  52  \n  53  //go:nosplit\n  54  func _otel_gls_get_baggage_container_impl() interface{} {\n  55  \treturn getg().m.curg.otel_baggage_container\n  56  }\n  57  "
+  },
+  {
+    "id": "gls",
+    "title": "协程上下文桥接",
+    "path": "pkg/rules/runtime/runtime_linker.go",
+    "line": 48,
+    "symbol": "_otel_gls_get/set_trace_context_impl",
+    "role": "为 runtime hook 暴露 trace context 与 baggage 的读写入口",
+    "question": "为什么 goroutine 创建不是普通 context 继承？",
+    "next": "检查 Go runtime newproc hook 规则",
+    "url": "https://github.com/alibaba/loongsuite-go/blob/cac400935add57d8219122ba32857b8f55ac6eb1/pkg/rules/runtime/runtime_linker.go#L48",
+    "snippet": "  46  var otel_sync_producer_call_depth_active = _otel_sync_producer_call_depth_active_impl\n  47  \n  48  //go:nosplit\n  49  func _otel_gls_get_trace_context_impl() interface{} {\n  50  \treturn getg().m.curg.otel_trace_context\n  51  }\n  52  \n  53  //go:nosplit\n  54  func _otel_gls_get_baggage_container_impl() interface{} {\n  55  \treturn getg().m.curg.otel_baggage_container\n  56  }\n  57  \n  58  //go:nosplit\n  59  func _otel_gls_set_trace_context_impl(v interface{}) {\n  60  \tgetg().m.curg.otel_trace_context = v\n  61  }\n  62  \n  63  //go:nosplit\n  64  func _otel_gls_set_baggage_container_impl(v interface{}) {\n  65  \tgetg().m.curg.otel_baggage_container = v\n  66  }\n  67  \n  68  //go:nosplit\n  69  func _otel_sync_producer_call_depth_enter_impl() {\n  70  \tgetg().m.curg.otel_sync_producer_call_depth++\n  71  }\n  72  \n  73  //go:nosplit\n  74  func _otel_sync_producer_call_depth_exit_impl() {\n  75  \tgetg().m.curg.otel_sync_producer_call_depth--\n  76  }\n  77  \n  78  //go:nosplit"
+  },
+  {
+    "id": "hook-rule",
+    "title": "自定义 Hook 入口",
+    "path": "docs/dev/hook.md",
+    "line": 1,
+    "symbol": "go:linkname hook",
+    "role": "指导二开者在 pkg/rules 下创建 hook module",
+    "question": "hook 参数为什么必须先放 CallContext？",
+    "next": "复制 nethttp example 生成最小规则",
+    "url": "https://github.com/alibaba/loongsuite-go/blob/cac400935add57d8219122ba32857b8f55ac6eb1/docs/dev/hook.md",
+    "snippet": "   1  # Write the Hook Code\n   2  We need to create a new plugin directory under pkg/rules/ and then write the plugin code, like this:\n   3  \n   4  ```go\n   5  package mux\n   6  \n   7  import _ \"unsafe\"\n   8  import \"github.com/alibaba/loongsuite-go/pkg/api\"\n   9  import mux \"github.com/gorilla/mux\"\n  10  \n  11  //go:linkname muxRoute130OnEnter github.com/gorilla/mux.muxRoute130OnEnter\n  12  func muxRoute130OnEnter(call api.CallContext, req *http.Request, route interface{}) {\n  13      ...\n  14  }\n  15  ```\n  16  There's no magic here — it's just regular Go code. A few interesting points:\n  17  \n  18  - The hook function muxRoute130OnEnter must be annotated with the go:linkname directive.\n  19  - The first parameter of the hook function must be of type api.CallContext, and the remaining parameters should match those of the target function:\n  20    - If the target function is `func foo(a int, b string, c float) (d string, e error)`, then the onEnter hook function should be `func hook(call api.CallContext, a int, b string, c float)`\n  21    - If the target function is `func foo(a int, b string, c float) (d string, e error)`, then the onExit hook function should be `func hook(call api.CallContext, d string, e error)`\n  22    - If you need to modify the parameters or return values of the target function, you can use `CallContext.SetParam()` or `CallContext.SetReturnVal()`\n  23  \n  24  We need more documentation explaining all aspects of writing plugin code. For now, the best way is to refer to other plugin implementations, such as `pkg/rules/mux` or any other existing plugin."
+  },
+  {
+    "id": "rule-json",
+    "title": "规则 JSON",
+    "path": "tool/data/rules/nethttp.json",
+    "line": 1,
+    "symbol": "InstFuncRule entries",
+    "role": "把目标函数、receiver、版本和 enter/exit hook 配置化",
+    "question": "如何为 已有 OTel 服务 版本增加匹配范围？",
+    "next": "先写 fixture 再改规则",
+    "url": "https://github.com/alibaba/loongsuite-go/blob/cac400935add57d8219122ba32857b8f55ac6eb1/tool/data/rules/nethttp.json",
+    "snippet": "   1  [\n   2    {\n   3      \"ImportPath\": \"net/http\",\n   4      \"Function\": \"RoundTrip\",\n   5      \"ReceiverType\": \"\\\\*Transport\",\n   6      \"OnEnter\": \"clientOnEnter\",\n   7      \"OnExit\": \"clientOnExit\",\n   8      \"Path\": \"github.com/alibaba/loongsuite-go/pkg/rules/http\"\n   9    },\n  10    {\n  11      \"ImportPath\": \"net/http\",\n  12      \"Function\": \"ServeHTTP\",\n  13      \"ReceiverType\": \"serverHandler\",\n  14      \"OnEnter\": \"serverOnEnter\",\n  15      \"OnExit\": \"serverOnExit\",\n  16      \"Path\": \"github.com/alibaba/loongsuite-go/pkg/rules/http\"\n  17    }\n  18  ]\n  19  "
+  },
+  {
+    "id": "otel-runtime",
+    "title": "创建与抑制 Span 的运行时入口",
+    "path": "pkg/inst-api/instrumenter/instrumenter.go",
+    "line": 98,
+    "symbol": "InternalInstrumenter.doStart",
+    "role": "采集属性、调用 tracer.Start，再把 Span 放入抑制策略与上下文；与网络上报分层。",
+    "question": "传给 tracer.Start 的 parentContext 来自哪里？Span suppression 又在哪一步写回 context？",
+    "next": "继续读 doEnd，再对照 GLS 的 SDK hook；这层本身不证明已经导出。",
+    "url": "https://github.com/alibaba/loongsuite-go/blob/cac400935add57d8219122ba32857b8f55ac6eb1/pkg/inst-api/instrumenter/instrumenter.go#L98",
+    "snippet": "  96  }\n  97  \n  98  func (i *InternalInstrumenter[REQUEST, RESPONSE]) doStart(parentContext context.Context, request REQUEST, timestamp time.Time, options ...trace.SpanStartOption) context.Context {\n  99  \tif i.enabler != nil && !i.enabler.Enable() {\n 100  \t\treturn parentContext\n 101  \t}\n 102  \tfor _, listener := range i.operationListeners {\n 103  \t\tparentContext = listener.OnBeforeStart(parentContext, timestamp)\n 104  \t}\n 105  \t// extract span name\n 106  \tspanName := i.spanNameExtractor.Extract(request)\n 107  \tspanKind := i.spanKindExtractor.Extract(request)\n 108  \toptions = append(options, trace.WithSpanKind(spanKind), trace.WithTimestamp(timestamp))\n 109  \tnewCtx, span := i.tracer.Start(parentContext, spanName, options...)\n 110  \tattrs := make([]attribute.KeyValue, 0, 20)\n 111  \t// extract span attrs\n 112  \tfor _, extractor := range i.attributesExtractors {\n 113  \t\tattrs, newCtx = extractor.OnStart(attrs, newCtx, request)\n 114  \t}\n 115  \t// execute context customizer hook\n 116  \tfor _, customizer := range i.contextCustomizers {\n 117  \t\tnewCtx = customizer.OnStart(newCtx, request, attrs)\n 118  \t}\n 119  \tfor _, listener := range i.operationListeners {\n 120  \t\tnewCtx = listener.OnBeforeEnd(newCtx, attrs, timestamp)\n 121  \t}\n 122  \tspan.SetAttributes(attrs...)\n 123  \treturn i.spanSuppressor.StoreInContext(newCtx, spanKind, span)\n 124  }\n 125  \n 126  func (i *InternalInstrumenter[REQUEST, RESPONSE]) End(ctx context.Context, request REQUEST, response RESPONSE, err error, options ...trace.SpanEndOption) {\n 127  \ti.doEnd(ctx, request, response, err, time.Now(), options...)\n 128  }"
+  },
+  {
+    "id": "version-boundary",
+    "title": "兼容性边界",
+    "path": "docs/user/compatibility.md",
+    "line": 1,
+    "symbol": "supported Go/library ranges",
+    "role": "解释 Go 版本、库版本、运行时 ABI 和规则范围的共同约束",
+    "question": "为什么 GORM/Mongo 版本不匹配时不能只改业务代码？",
+    "next": "用 已有 OTel 服务 go.mod 建兼容矩阵",
+    "url": "https://github.com/alibaba/loongsuite-go/blob/cac400935add57d8219122ba32857b8f55ac6eb1/docs/user/compatibility.md",
+    "snippet": "   1  # Compatibility\n   2  \n   3  `loongsuite-go` ensures compatibility with the current supported\n   4  versions of\n   5  the [Go language](https://golang.org/doc/devel/release#policy):\n   6  \n   7  > Each major Go release is supported until there are two newer major releases.\n   8  > For example, Go 1.5 was supported until the Go 1.7 release, and Go 1.6 was supported until the Go 1.8 release.\n   9  \n  10  For versions of Go that are no longer supported upstream, `loongsuite-go` will\n  11  stop ensuring compatibility with these versions in the following manner:\n  12  \n  13  - A minor release of `loongsuite-go` will be made to add support for the new\n  14  supported release of Go.\n  15  - The following minor release of `loongsuite-go` will remove compatibility\n  16  testing for the oldest (now archived upstream) version of Go. This, and\n  17  future, releases of `loongsuite-go` may include features only supported by\n  18  the currently supported versions of Go.\n  19  \n  20  > [!IMPORTANT]\n  21  > **Minimum Go version: 1.25.** Since OpenTelemetry v1.42.0 the OTel modules\n  22  > declare `go 1.25.0`, and `loongsuite-go` pins OTel v1.45.0. Because the tool\n  23  > injects those modules into the application it instruments, both the tool and\n  24  > the instrumented application require Go 1.25 or newer. A Go 1.24 build only\n  25  > keeps working because the default `GOTOOLCHAIN=auto` silently downloads a\n  26  > 1.25 toolchain; with `GOTOOLCHAIN=local` it fails.\n  27  \n  28  This project is tested on the following systems.\n  29  \n  30  | OS       | Go Version | Architecture |\n  31  | -------- | ---------- | ------------ |"
+  }
+];
+export const labResults = {
+  "upstream": {
+    "tag": "v1.15.0",
+    "sha": "cac400935add57d8219122ba32857b8f55ac6eb1",
+    "go": [
+      "go1.26.2 darwin/arm64",
+      "go1.25.0 darwin/arm64 via GOTOOLCHAIN"
+    ]
+  },
+  "labs": {
+    "01-context": {
+      "command": "go run . >tmp && sort tmp (run twice; preserve go run exit status)",
+      "status": "passed",
+      "evidence": [
+        "trace-request",
+        "<root>",
+        "no close-channel panic",
+        "go run -race . passed"
+      ]
+    },
+    "02-ast": {
+      "command": "go run .",
+      "status": "passed",
+      "evidence": [
+        "defer observe() inserted"
+      ]
+    },
+    "03-toolexec": {
+      "command": "go build -toolexec=wrapper",
+      "status": "passed",
+      "evidence": [
+        "compile -V=full and compile/link forwarded",
+        "compiled through -toolexec"
+      ]
+    },
+    "04-custom-hook-plain": {
+      "command": "go run .",
+      "status": "passed",
+      "evidence": [
+        "plain-result 42 status 204"
+      ]
+    },
+    "04-custom-hook-upstream": {
+      "command": "OTEL_TOOL=/ABS/PATH/otel ./labs/run-all.sh --with-otel",
+      "status": "passed",
+      "evidence": [
+        "Go 1.26.2 clean temp copy compiled",
+        "hook-enter method=GET",
+        "hook-exit status=204",
+        "custom rule appears in matched.json"
+      ],
+      "notes": "An earlier run failed because the rule encoded ReceiverType as \\\\*Transport (two regex slashes); correcting it to \\*Transport made the custom rule match. The run uses -disable=, not -disable=all. OTLP localhost refusal is expected without a collector and does not affect the hook assertion.",
+      "verifiedAt": "2026-10-29",
+      "portability": "Public pkg pseudo-version pinned to cac400935add57d8219122ba32857b8f55ac6eb1; no local research replace. Rebuilt and ran in the standalone GitHub export."
+    },
+    "05-otel": {
+      "command": "go run .",
+      "status": "passed",
+      "evidence": [
+        "four exported spans: request, child, remote-child, detached",
+        "asserted shared TraceID and correct ParentSpanIDs for linked spans",
+        "remote parent IsRemote=true",
+        "Background creates a distinct root in native SDK",
+        "unsampled-child has valid SpanContext, is not recording, is not exported"
+      ]
+    },
+    "06-propagation": {
+      "command": "go run .",
+      "status": "passed",
+      "evidence": [
+        "W3C, B3 multi, B3 single and conflict matrix",
+        "B3 last overrides W3C",
+        "single B3 wins over multi",
+        "multi inject preserves old b3",
+        "clear old B3 then outgoing context is adopted",
+        "every case asserts both TraceID and SpanID, plus IsRemote",
+        "stale single header and new multi header share TraceID but point to different parent SpanIDs"
+      ],
+      "scope": "real OTel propagators and fixed valid SpanContexts; carrier model only, no real gateway acceptance"
+    },
+    "00-start": {
+      "command": "go run .; go build -o .bin/observe .; .bin/observe",
+      "status": "passed",
+      "verifiedAt": "2026-10-28",
+      "evidence": [
+        "plain result = 3",
+        "observe: start",
+        "observe: end, result = 3",
+        "observed result = 3",
+        "go run and built binary checked; elapsed duration varies"
+      ]
+    }
+  },
+  "scope": "本地教学验证，不代表全部业务路径验收。",
+  "verified_at": "2026-10-27"
+};
+export const labRegistry = [
+  {
+    "id": "00-start",
+    "title": "从普通函数到手动观察",
+    "goal": "只用 Go 标准库，理解返回值和执行记录分别解决什么问题。无需先安装 LoongSuite。",
+    "command": "cd labs/00-start\ngo run .",
+    "expected": "plain result 与 observed result 都是 3，后者额外有 observe: start / end 和耗时；这里只手写记录，没有 OTel Span。",
+    "challenge": "把 main 中两处输入都改成 8，比较两条结果与记录中的 result。",
+    "answer": "业务动作仍然调用 addOne；增加的代码负责观察。自动插桩要解决的是把类似观察动作重复接入大量调用的工作。",
+    "status": "00-start: passed",
+    "output": "00-start [passed]\nplain result = 3\nobserve: start\nobserve: end, result = 3\nobserved result = 3\ngo run and built binary checked; elapsed duration varies"
+  },
+  {
+    "id": "01-context",
+    "title": "上下文不会自动穿过任务交接",
+    "goal": "用标准库 context 中的教学标识，比较显式 ctx、新协程、预创建 worker。此处字符串标识不是 OTel Span，真实 Span 在后续实验中验证。",
+    "command": "cd labs/01-context\ngo run .",
+    "expected": "显式交接能读取 trace-request；Background 没有该值，打印 <root>。",
+    "challenge": "让两个请求并发提交任务，分别保存自己的 ctx，检查有没有串值。",
+    "answer": "worker 的创建早于任务。应在任务结构中携带 context，而不是依赖创建时闭包。context 是安全共享接口，但你放进 Value 的可变对象仍需同步。",
+    "status": "01-context: passed",
+    "output": "01-context [passed]\ntrace-request\n<root>\nno close-channel panic\ngo run -race . passed"
+  },
+  {
+    "id": "02-ast",
+    "title": "把“插一行”变成结构化改写",
+    "goal": "使用 go/parser、go/ast、go/format 解析并为目标 FuncDecl 插入 defer observe()。这是 AST 机制实验，不是 LoongSuite 的完整 trampoline。",
+    "command": "cd labs/02-ast\ngo run .",
+    "expected": "输出的 Handle 函数内出现 defer observe()；注释/字符串里的同名文本不会变成目标声明。",
+    "challenge": "只对一个指定 receiver 的方法命中；让同名普通函数保持不变。",
+    "answer": "读取 FuncDecl.Recv 和名称，再修改 Body.List。正则只认识文本，不能稳定区分注释、字符串与语法节点。",
+    "status": "02-ast: passed",
+    "output": "02-ast [passed]\ndefer observe() inserted"
+  },
+  {
+    "id": "03-toolexec",
+    "title": "亲手包装一次真实 Go 编译",
+    "goal": "编译 wrapper，再让 go build 的 compiler/linker 经过它；保留标准输入、输出、错误及退出码。",
+    "command": "cd labs/03-toolexec\nmkdir -p .bin\ngo build -o .bin/toolexec ./wrapper\nTOOLEXEC_LOG=\"$PWD/toolexec.log\" go build -toolexec=\"$PWD/.bin/toolexec\" -o .bin/app .\n.bin/app",
+    "expected": "程序输出 compiled through -toolexec；toolexec.log 中能看到工具版本探测和编译/链接命令。",
+    "challenge": "故意让 wrapper 返回非零，观察 go build 是否正确失败；随后恢复。",
+    "answer": "-V=full 是版本探测的一部分，不能乱改 stdout。观测日志写文件或 stderr，真实工具路径与剩余参数原样转发。不默认清空全局 GOCACHE。",
+    "status": "03-toolexec: passed",
+    "output": "03-toolexec [passed]\ncompile -V=full and compile/link forwarded\ncompiled through -toolexec"
+  },
+  {
+    "id": "04-custom-hook",
+    "title": "从 JSON 规则走到真实 OnEnter / OnExit",
+    "goal": "固定上游工具为 net/http 调用插入一个自定义 hook，比较普通二进制和插桩二进制。此实验保留原业务结果，不修改网络环境。",
+    "command": "cd labs\n# 按 README 构建固定上游工具，替换下面的绝对路径\nOTEL_TOOL=/ABS/PATH/otel ./run-all.sh --with-otel",
+    "expected": "普通版本返回 plain-result 42 status 204；真实插桩额外输出 hook-enter method=GET、hook-exit status=204，原结果保持一致。脚本逐项断言输出，失败以非零退出。完整配置与执行记录在实验包。",
+    "challenge": "在复制的实验分支中用 SetParam/SetReturnVal 改结果，再增加断言证明它确实影响调用者；最后恢复只读 hook。",
+    "answer": "先跑通规则命中、签名、链接和 enter/exit 生命周期，再改行为。只看到 JSON 解析成功或 plain 输出，不代表自动插桩成功。",
+    "status": "04-custom-hook-plain: passed / 04-custom-hook-upstream: passed",
+    "output": "04-custom-hook-plain [passed]\nplain-result 42 status 204\n\n04-custom-hook-upstream [passed]\nGo 1.26.2 clean temp copy compiled\nhook-enter method=GET\nhook-exit status=204\ncustom rule appears in matched.json"
+  },
+  {
+    "id": "05-otel",
+    "title": "把教学标识换成真正的 OTel Span",
+    "goal": "用内存 exporter 验证 TraceID、ParentSpanID、上下文与采样，不依赖远端 Collector。",
+    "command": "cd labs/05-otel\ngo run .",
+    "expected": "显式父 context 的 child 同 Trace，Background 新根；传播 carrier 后消费端保留因果。具体断言见实验源码和执行记录。",
+    "challenge": "切换为未采样父上下文，观察有效 TraceID 与已导出 Span 的区别。",
+    "answer": "Context 中的 SpanContext、SDK 记录和 exporter 输出是三个独立层次，必须分别断言。",
+    "status": "05-otel: passed",
+    "output": "05-otel [passed]\nfour exported spans: request, child, remote-child, detached\nasserted shared TraceID and correct ParentSpanIDs for linked spans\nremote parent IsRemote=true\nBackground creates a distinct root in native SDK\nunsampled-child has valid SpanContext, is not recording, is not exported"
+  },
+  {
+    "id": "06-propagation",
+    "title": "亲自提取 W3C、B3 单头与多头",
+    "goal": "使用真实 OTel propagator，固定合法 ID，逐项断言冲突输入和旧单头残留。这里模拟载体，没有连接真实网关。",
+    "command": "cd labs/06-propagation\ngo run .",
+    "expected": "B3 最后覆盖 W3C；有效 B3 单头优先多头；旧单头未清理时 parent 仍旧，清理后连接新的出站 SpanID。相同 TraceID 不保证父节点正确。",
+    "challenge": "把 B3 移到 W3C 前，再让两种格式提供不同 TraceID；比较胜出者。",
+    "answer": "组合传播器按顺序更新 context。B3 的注入编码只控制写出格式，不会禁止读取单头，也不会自动删除旧头。实验对每一行同时检查 TraceID、SpanID 和远程标志。",
+    "status": "06-propagation: passed",
+    "output": "06-propagation [passed]\nW3C, B3 multi, B3 single and conflict matrix\nB3 last overrides W3C\nsingle B3 wins over multi\nmulti inject preserves old b3\nclear old B3 then outgoing context is adopted\nevery case asserts both TraceID and SpanID, plus IsRemote\nstale single header and new multi header share TraceID but point to different parent SpanIDs"
+  }
+];

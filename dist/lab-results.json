@@ -1,0 +1,96 @@
+{
+  "upstream": {
+    "tag": "v1.15.0",
+    "sha": "cac400935add57d8219122ba32857b8f55ac6eb1",
+    "go": [
+      "go1.26.2 darwin/arm64",
+      "go1.25.0 darwin/arm64 via GOTOOLCHAIN"
+    ]
+  },
+  "labs": {
+    "01-context": {
+      "command": "go run . >tmp && sort tmp (run twice; preserve go run exit status)",
+      "status": "passed",
+      "evidence": [
+        "trace-request",
+        "<root>",
+        "no close-channel panic",
+        "go run -race . passed"
+      ]
+    },
+    "02-ast": {
+      "command": "go run .",
+      "status": "passed",
+      "evidence": [
+        "defer observe() inserted"
+      ]
+    },
+    "03-toolexec": {
+      "command": "go build -toolexec=wrapper",
+      "status": "passed",
+      "evidence": [
+        "compile -V=full and compile/link forwarded",
+        "compiled through -toolexec"
+      ]
+    },
+    "04-custom-hook-plain": {
+      "command": "go run .",
+      "status": "passed",
+      "evidence": [
+        "plain-result 42 status 204"
+      ]
+    },
+    "04-custom-hook-upstream": {
+      "command": "OTEL_TOOL=/ABS/PATH/otel ./labs/run-all.sh --with-otel",
+      "status": "passed",
+      "evidence": [
+        "Go 1.26.2 clean temp copy compiled",
+        "hook-enter method=GET",
+        "hook-exit status=204",
+        "custom rule appears in matched.json"
+      ],
+      "notes": "An earlier run failed because the rule encoded ReceiverType as \\\\*Transport (two regex slashes); correcting it to \\*Transport made the custom rule match. The run uses -disable=, not -disable=all. OTLP localhost refusal is expected without a collector and does not affect the hook assertion.",
+      "verifiedAt": "2026-10-29",
+      "portability": "Public pkg pseudo-version pinned to cac400935add57d8219122ba32857b8f55ac6eb1; no local research replace. Rebuilt and ran in the standalone GitHub export."
+    },
+    "05-otel": {
+      "command": "go run .",
+      "status": "passed",
+      "evidence": [
+        "four exported spans: request, child, remote-child, detached",
+        "asserted shared TraceID and correct ParentSpanIDs for linked spans",
+        "remote parent IsRemote=true",
+        "Background creates a distinct root in native SDK",
+        "unsampled-child has valid SpanContext, is not recording, is not exported"
+      ]
+    },
+    "06-propagation": {
+      "command": "go run .",
+      "status": "passed",
+      "evidence": [
+        "W3C, B3 multi, B3 single and conflict matrix",
+        "B3 last overrides W3C",
+        "single B3 wins over multi",
+        "multi inject preserves old b3",
+        "clear old B3 then outgoing context is adopted",
+        "every case asserts both TraceID and SpanID, plus IsRemote",
+        "stale single header and new multi header share TraceID but point to different parent SpanIDs"
+      ],
+      "scope": "real OTel propagators and fixed valid SpanContexts; carrier model only, no real gateway acceptance"
+    },
+    "00-start": {
+      "command": "go run .; go build -o .bin/observe .; .bin/observe",
+      "status": "passed",
+      "verifiedAt": "2026-10-28",
+      "evidence": [
+        "plain result = 3",
+        "observe: start",
+        "observe: end, result = 3",
+        "observed result = 3",
+        "go run and built binary checked; elapsed duration varies"
+      ]
+    }
+  },
+  "scope": "本地教学验证，不代表全部业务路径验收。",
+  "verified_at": "2026-10-27"
+}

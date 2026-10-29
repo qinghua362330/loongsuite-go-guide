@@ -1,0 +1,10 @@
+[
+  {
+    "ImportPath": "net/http",
+    "Function": "RoundTrip",
+    "ReceiverType": "\\*Transport",
+    "OnEnter": "guideHttpEnter",
+    "OnExit": "guideHttpExit",
+    "Path": "./rules"
+  }
+]

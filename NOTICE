@@ -1,0 +1,19 @@
+LoongSuite Go Guide
+Copyright 2026 LoongSuite Go Guide contributors
+
+This is an independent educational project. It is not an official Alibaba,
+LoongSuite or OpenTelemetry distribution.
+
+This repository contains attributed source excerpts from LoongSuite Go:
+  https://github.com/alibaba/loongsuite-go
+  Tag: v1.15.0
+  Commit: cac400935add57d8219122ba32857b8f55ac6eb1
+
+The upstream excerpts retain their original copyright and Apache-2.0 terms.
+The upstream license is included at dist/assets/LOONGSUITE-LICENSE.txt.
+Source links in content/source-snapshot.json identify the original files.
+Explanations, illustrations, examples and UI are modified educational material.
+
+Third-party projects linked by the guide and Go modules referenced by the labs
+remain subject to their own licenses. This repository does not redistribute the
+full LoongSuite source tree or vendored Go dependencies.
