@@ -18,6 +18,7 @@
 - 章节内容：`dist/chapters.js` 与 `dist/course-demos.js`。
 - 源码讲解：`dist/source-lessons.js` 与 `dist/source-demos.js`。
 - 图解：`dist/motion-map.js`、`dist/motion-scene.js`；专门的依赖练习见 `dist/dependency-lesson.js`。
+- 对照官方文档：`dist/official-docs.js`，顺序与官方中文侧栏一致，摘要用自己的话写。
 - 实验：`labs/` 中的独立模块。
 
 不要直接改生成的 `dist/offline.html`、`dist/generated-data.js`、`dist/guide.md` 或实验 ZIP，修改输入后重新生成。

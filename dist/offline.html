@@ -13594,6 +13594,169 @@ function renderSourcePage(s, lesson, nodes, {inline,escape,codeBlock}) {
 
 const preprocessRealExample=`<aside class="source-real-example"><h3>源码里的同类情况：给 GORM 加观察代码，为什么会多出 MySQL 包？</h3><p>假设业务原来使用匹配版本的 GORM 和 PostgreSQL，没有引用 MySQL driver。第一次匹配会选中 GORM 的 <code>Open</code> 规则。这个规则指向的 <code>pkg/rules/gorm/setup.go</code> 自己却引用了 <code>gorm.io/driver/mysql</code>，并访问 <code>Config.DbInfo</code>。</p><p>把 GORM 记录包加入构建以后，MySQL driver 也进入构建范围；第二次匹配才能对它应用“给 Config 增加 DbInfo 字段”的规则。这解释了为什么加入规则代码后还要重新匹配。第三次准备按最终结果再生成、同步；本例不保证第三次一定增加新模块。</p><p>上面的动画用两个教学自定义规则，把“第二次匹配又选出一个带记录包的规则”的情形拆得更明显。实际依赖取决于你的项目；当前实现固定两次匹配，没有循环到完全不再变化的检查。</p><p>这是基于固定源码推导的路径，没有在本页执行该数据库组合。对应源码：<a href="https://github.com/alibaba/loongsuite-go/blob/cac400935add57d8219122ba32857b8f55ac6eb1/tool/data/rules/gorm.json" target="_blank" rel="noopener noreferrer">GORM 规则</a> · <a href="https://github.com/alibaba/loongsuite-go/blob/cac400935add57d8219122ba32857b8f55ac6eb1/pkg/rules/gorm/setup.go#L106" target="_blank" rel="noopener noreferrer">记录包读取 DbInfo</a> · <a href="https://github.com/alibaba/loongsuite-go/blob/cac400935add57d8219122ba32857b8f55ac6eb1/tool/preprocess/preprocess.go#L273" target="_blank" rel="noopener noreferrer">三轮的实际控制流</a></p></aside>`;
 
+// 对照官方文档阅读：顺序与标题跟随 https://alibaba.github.io/loongsuite-go/ 的中文侧栏。
+// 摘要用本指南自己的话写，不复制官方正文；官方页面才是用法与参数的权威来源。
+
+const officialSite = {
+  base: 'https://alibaba.github.io/loongsuite-go/',
+  checked: '2026-10-29',
+  mainCommit: '9576e3840ff9cbf58f593fef8dd01a3439d61cc8',
+  diffNote: '核对日 `main` 与固定版本 v1.15.0 的 `docs/` 只有一处差异：支持库表中 zap 的仓库链接写法。工具行为仍以固定版本源码为准。'
+};
+
+const coverageLabels = {
+  deep: ['本指南详细展开', '有动画、源码定位和实验'],
+  partial: ['本指南部分覆盖', '讲了原理，参数与清单以官方为准'],
+  official: ['以官方为准', '本指南只给阅读提示，尚未展开']
+};
+
+const officialGroups = [
+  {id: 'user', title: '用户指南', en: 'User Guide', pages: [
+    {id: 'user-index', title: '概述与快速开始', path: 'zh/', coverage: 'deep',
+      says: '安装 `otel` 工具，在 `go build` 前加上 `otel` 前缀即可构建出带 OpenTelemetry 观察能力的程序；官方附有 demo、nethttp、kafka 等示例。',
+      gap: '“目标应用无需改代码”容易被理解成“什么代码都没加”。实际上源码文件不改，观察代码是在**构建期间**被加入的，所以要先分清编译时和运行时。',
+      read: [['从零 1 · 先有一个普通函数', '#/start/1'], ['从零 4 · 编译时和运行时是两段时间', '#/start/4'], ['从零 5 · 工具怎样替我加上前后动作', '#/start/5'], ['从 otel go build 到目标二进制', '#/learn/build']],
+      question: '源码一行没改，新加的观察动作是在哪个阶段出现的？',
+      answer: '在构建阶段：工具先准备规则和依赖，再让编译器处理改写后的代码。运行时执行的是这份加工后的二进制。'},
+    {id: 'user-config', title: '命令行参考', path: 'zh/user/config.html', coverage: 'partial',
+      says: '`otel set` 设置调试、详细日志、自定义规则、禁用默认规则与 Go 缓存目录，同名配置也可用 `OTELTOOL_` 前缀的环境变量临时覆盖；`otel go build` 接收原有构建参数。',
+      gap: '`-rule` 与 `-disable` 改变的是**哪些规则进入匹配**，而不是运行时开关。读懂规则文件如何加载，才能判断“设置了却没生效”时该查哪一层。',
+      read: [['otel 命令入口', '#/source/cli'], ['规则加载：JSON 先变成具体 Go 类型', '#/source/rule-load'], ['规则系统：版本范围不是装饰', '#/learn/rules'], ['实验 04：用 -disable= 与 -rule 跑真实 hook', '#/labs']],
+      question: '执行 `otel set -disable=all -rule=custom.json` 后，官方说哪个规则文件仍然会启用？',
+      answer: '`base.json`。即使禁用全部默认规则，它也会保留；排查规则来源时要把它算进去。'},
+    {id: 'user-compilation-time', title: '编译时间', path: 'zh/user/compilation-time.html', coverage: 'deep',
+      says: '使用工具后编译明显变慢：要引入新依赖并整理模块，还因为向标准库注入了代码而每次强制完整重编译。官方给出的增幅约为 92.8%。',
+      gap: '为什么“加观察代码”会牵出新依赖，以及新依赖又可能命中新规则，是理解耗时的关键。',
+      read: [['从零 6 · 为什么还要“补上依赖”', '#/start/6'], ['Preprocess：为什么找两次规则，要准备三次？', '#/source/preprocess'], ['为观察代码补依赖', '#/source/deps'], ['从 otel go build 到目标二进制', '#/learn/build']],
+      question: '官方建议用哪个配置减少重复构建的时间？',
+      answer: '`otel set -gocache=<目录>`（或 `OTELTOOL_GO_CACHE`）指定可复用的 Go 缓存目录，避免每次使用临时缓存。'},
+    {id: 'user-experimental', title: '实验性功能', path: 'zh/user/experimental-feature.html', coverage: 'official',
+      says: '列出 kratos、nacos、数据库与 Sentinel 的实验性采集开关，均为默认关闭的环境变量。',
+      gap: '这些是**运行时**读取的环境变量：改动后不需要重新插桩构建，但要在启动程序的环境里设置。',
+      read: [['从零 4 · 编译时和运行时是两段时间', '#/start/4'], ['OpenTelemetry 运行时：Span 从哪里来、到哪里去', '#/learn/otel']],
+      question: '设置 `OTEL_INSTRUMENTATION_DB_EXPERIMENTAL_ENABLE=true` 后，需要重新执行 `otel go build` 吗？',
+      answer: '按官方说明它是程序运行时读取的开关，在启动环境中设置即可；不确定时以新进程的实际输出为准。'},
+    {id: 'user-compatibility', title: '兼容性', path: 'zh/user/compatibility.html', coverage: 'deep',
+      says: '跟随 Go 官方的版本支持策略；当前最低 Go 1.25，因为注入的 OTel 模块要求 1.25；并列出经过测试的操作系统、Go 版本与架构。',
+      gap: '“兼容”不只有 Go 版本一个数字，还包括目标库的版本区间和 runtime 内部结构。三者要一起看。',
+      read: [['兼容性边界：三种版本要一起看', '#/source/version-boundary'], ['版本与多 module', '#/source/go-mod'], ['运行时上下文：GLS、newproc 与真实限制', '#/learn/runtime']],
+      question: 'Go 1.24 在默认设置下为什么还能构建？',
+      answer: '默认 `GOTOOLCHAIN=auto` 会自动下载 1.25 工具链；改成 `GOTOOLCHAIN=local` 就会失败。'},
+    {id: 'user-manual', title: '手动埋点', path: 'zh/user/manual-instrument.html', coverage: 'deep',
+      says: '在自动埋点之外，用 `otel.Tracer(...).Start(r.Context(), ...)` 手动创建 Span，它会出现在自动生成的 HTTP Span 之下。',
+      gap: '手动 Span 能挂在正确父节点下，前提是传入了携带父 Span 的 context；已有 OTel 服务还要考虑重复埋点。',
+      read: [['从零 7 · 从一条耗时记录，到一整条请求', '#/start/7'], ['OpenTelemetry 运行时：Span 从哪里来、到哪里去', '#/learn/otel'], ['兼容已有 OTel：去重、入口和消息边界', '#/learn/compatibility'], ['实验 05：真实 TraceID 与父 Span', '#/labs']],
+      question: '把示例里的 `r.Context()` 换成 `context.Background()`，手动 Span 会怎样？',
+      answer: '它通常不再以 HTTP Span 为父节点，而是开始一条新的链路（LoongSuite 的 GLS 可能补救部分场景，见“上下文传播”）。'},
+    {id: 'user-context', title: '上下文传播', path: 'zh/user/context-propagation.html', coverage: 'deep',
+      says: '借鉴 SkyWalking Go：创建 Span 时同时存入协程结构（GLS），创建新协程时复制这份数据；context 没传好时，从 GLS 找最近的 Span 作父节点，baggage 同理。',
+      gap: 'GLS 是补救手段，不等于可以不传 context。预创建的 worker、消息队列等交接点仍可能接错父节点。',
+      read: [['Context 与传播：一条链怎样跨 goroutine 和进程', '#/learn/context'], ['GLS：工具提供的协程上下文桥', '#/source/gls'], ['运行时上下文：GLS、newproc 与真实限制', '#/learn/runtime'], ['实验 01 与 06：任务交接与传播头', '#/labs']],
+      question: 'GLS 在“新协程创建时复制”数据。为什么提前创建好的 worker 处理新任务时仍可能拿错父节点？',
+      answer: 'worker 协程在任务到来之前就创建了，复制发生在那时；之后的任务要靠显式携带 context 才能交接正确的父 Span。'},
+    {id: 'user-sdk', title: 'OpenTelemetry 配置', path: 'zh/user/sdk-config.html', coverage: 'partial',
+      says: '工具会注入 SDK 初始化代码，通过标准 `OTEL_*` 环境变量配置服务名、导出器、OTLP 端点与协议、采样器和 HTTP 排除路径。',
+      gap: '采样有两个变量：私有的 `OTEL_TRACE_SAMPLER` 优先级更高且基于父级；标准的 `OTEL_TRACES_SAMPLER=traceidratio` 不基于父级。名字只差一个 S，行为不同。',
+      read: [['OpenTelemetry 运行时：Span 从哪里来、到哪里去', '#/learn/otel'], ['创建与抑制 Span 的运行时入口', '#/source/otel-runtime'], ['实验 05：采样与内存 exporter', '#/labs']],
+      question: '想保持“基于父级、50% 比例”的旧行为，并改用标准变量，应该怎么写？',
+      answer: '`OTEL_TRACES_SAMPLER=parentbased_traceidratio` 配合 `OTEL_TRACES_SAMPLER_ARG=0.5`。'},
+    {id: 'user-libraries', title: '支持的库', path: 'zh/user/supported-libraries.html', coverage: 'partial',
+      says: '列出已有规则的库，以及每个库支持的最低、最高版本。',
+      gap: '表格里的范围最终落在规则 JSON 的 `Version` 字段，通常是左闭右开区间；依赖版本落在区间外时，规则不会命中，也不会报错。',
+      read: [['规则系统：版本范围不是装饰', '#/learn/rules'], ['规则 JSON', '#/source/rule-json'], ['编译 action 匹配', '#/source/match']],
+      question: '规则写 `[1.3.0,1.7.4)`，项目使用 1.7.4，会发生什么？',
+      answer: '右端点不包含，规则不命中。构建可以成功，但不会出现这条规则对应的观察数据。'}
+  ]},
+  {id: 'dev', title: '开发者指南', en: 'Developer Guide', pages: [
+    {id: 'dev-overview', title: '概述', path: 'zh/dev/overview.html', coverage: 'deep',
+      says: '目标库不在支持列表中时，可以自己写规则和 hook 注入观察代码，既能本地使用，也能贡献到仓库。',
+      gap: '一次可靠的二开要同时交付规则、hook、原版与插桩的对照输出，以及兼容性说明。',
+      read: [['Hook 与 linkname：如何接入而不破坏调用约定', '#/learn/hooks'], ['毕业项目：为已有 OTel 服务新增一个安全规则', '#/learn/capstone'], ['实验 04：自定义 hook', '#/labs']],
+      question: '开发一个新插件，至少要写哪两样东西？',
+      answer: '一条注册规则（说明目标函数、版本和 hook 位置）和一段 hook 代码（实际的观察逻辑）。'},
+    {id: 'dev-register', title: '注册 Hook 规则', path: 'zh/dev/register.html', coverage: 'deep',
+      says: '在 `tool/data/rules` 下增加 JSON 文件，写明版本区间、导入路径、目标函数、OnEnter 名称和 hook 代码路径。',
+      gap: 'JSON 只是声明。它先被解析成具体的规则类型，再在编译动作里和真实包、函数匹配。',
+      read: [['规则 JSON', '#/source/rule-json'], ['规则加载：JSON 先变成具体 Go 类型', '#/source/rule-load'], ['规则数据模型', '#/source/rule-model'], ['实验 04：JSON 规则到真实 hook', '#/labs']],
+      question: '官方 mux 示例里，`Path` 字段指向什么？',
+      answer: '存放 hook 代码的包路径（`pkg/rules/mux`）。它可以是模块路径，也可以是本地目录。'},
+    {id: 'dev-hook', title: '编写 Hook 代码', path: 'zh/dev/hook.html', coverage: 'deep',
+      says: 'hook 是普通 Go 函数，但必须用 `go:linkname` 标注；第一个参数是 `api.CallContext`，OnEnter 其余参数对应目标函数参数，OnExit 对应返回值；可用 `SetParam` / `SetReturnVal` 修改。',
+      gap: '签名不匹配或链接名写错时，问题会出现在编译或链接阶段，而且报错不一定直接指向 hook。',
+      read: [['自定义 Hook：普通 Go 函数也要遵守连接约定', '#/source/hook-rule'], ['CallContext API', '#/source/call-context'], ['跨包符号桥', '#/source/linkname'], ['Hook 与 linkname', '#/learn/hooks']],
+      question: '目标函数是 `func foo(a int) (string, error)`，OnExit hook 的参数是什么？',
+      answer: '`(call api.CallContext, s string, err error)`：第一个参数是 CallContext，其余对应返回值。'},
+    {id: 'dev-test', title: '测试 Hook 代码', path: 'zh/dev/test.html', coverage: 'official',
+      says: '在 `test/` 下按库与最低版本建立用例目录，用 verifier 断言产生的 Span，并说明 muzzle、latest-depth 与 world 测试。',
+      gap: '本指南的实验用输出断言证明 hook 执行、原结果不变，没有讲解上游的 verifier 测试框架。给上游提规则时，请按官方这页补测试。',
+      read: [['调试与验证：从“没 Span”定位到具体层', '#/learn/debugging'], ['实验 04：普通与插桩输出逐项断言', '#/labs']],
+      question: '为一个支持 `v9.0.5` 到最新版本的规则写测试，官方建议先建哪个版本目录？',
+      answer: '最低版本 `v9.0.5`，先证明区间左端点可用。'},
+    {id: 'dev-rule-types', title: 'Hook 规则类型', path: 'zh/dev/rule_def.html', coverage: 'deep',
+      says: '三类规则：给函数插入入口/出口 hook、在编译某个包时加入新文件、给结构体增加字段，并说明各字段的含义。',
+      gap: '`Function` 与 `ReceiverType` 支持正则，范围可能比预期大；字段的真实语义要以加载代码为准，文档与实现偶有出入。',
+      read: [['规则数据模型', '#/source/rule-model'], ['规则集合', '#/source/bundle'], ['规则系统：版本范围不是装饰', '#/learn/rules'], ['Preprocess：给结构体加字段的实例', '#/source/preprocess']],
+      question: '`Function` 和 `ReceiverType` 都写 `.*` 会匹配什么？',
+      answer: '该包中的所有函数，包括没有接收者的普通函数。'},
+    {id: 'dev-http-capture', title: 'HTTP 采集', path: 'zh/dev/http-capture.html', coverage: 'official',
+      says: '设计 HTTP 请求头和 Body 的采集：环境变量、属性命名、Body 采集条件、实现位置与测试计划。',
+      gap: '本指南没有讲解这项功能。它适合在读懂 hook 与 OTel 属性之后，作为“一个完整插件设计”来读。',
+      read: [['Hook 与 linkname', '#/learn/hooks'], ['OpenTelemetry 运行时：属性、事件和状态', '#/learn/otel']],
+      question: '读这页设计文档时，先找哪两部分最能帮助理解实现？',
+      answer: '“实现位置”和“Hook 改动”：前者告诉你改哪些包，后者告诉你 hook 在哪一步取数据。'}
+  ]},
+  {id: 'hacking', title: '黑客指南', en: 'Hacking Guide', pages: [
+    {id: 'hack-overview', title: '概述', path: 'zh/hacking/overview.html', coverage: 'deep',
+      says: '普通 `go build` 经历解析、类型检查、优化、生成代码与链接；使用工具后，在这些步骤之前增加“预处理”和“埋点”两个阶段。',
+      gap: '两个新阶段并不是替换编译器，而是在调用真实编译器之前准备和改写输入。',
+      read: [['从零 4 · 编译时和运行时是两段时间', '#/start/4'], ['从 otel go build 到目标二进制', '#/learn/build'], ['源码架构导航：从命令到 hook 的调用链', '#/learn/architecture']],
+      question: '“预处理”和“埋点”分别产出什么？',
+      answer: '预处理选出要用的规则并准备依赖；埋点按规则生成并注入代码，再交给真实编译器。'},
+    {id: 'hack-preprocess', title: '预处理阶段', path: 'zh/hacking/preprocess.html', coverage: 'deep',
+      says: '分析项目依赖并与规则匹配，准备规则需要的依赖，然后通过 `go build -toolexec otel` 进入埋点阶段。',
+      gap: '官方用一段话带过的“准备依赖”，实际要反复进行：加入 hook 代码会带进新包，新包又可能命中新规则。',
+      read: [['Preprocess：为什么找两次规则，要准备三次？', '#/source/preprocess'], ['为观察代码补依赖', '#/source/deps'], ['Go 编译器代理', '#/source/toolexec'], ['实验 03：亲手包装一次 Go 编译', '#/labs']],
+      question: '`-toolexec` 让 `go build` 做了什么不同的事？',
+      answer: '调用编译器、链接器等工具时，先调用指定程序并把原命令交给它，由它决定改写输入后再执行真实工具。'},
+    {id: 'hack-instrument', title: '埋点阶段', path: 'zh/hacking/instrument.html', coverage: 'deep',
+      says: '以 `(*Transport).RoundTrip` 为例：在原函数入口插入 tjump，跳到生成的 Trampoline，再由 `go:linkname` 接到开发者写的 hook。',
+      gap: '三层模型里，“谁生成、谁提供、谁连接”最容易混。先分清 RawFunc、TrampolineFunc、HookFunc 的来源，再看代码。',
+      read: [['AST 插桩总流程', '#/source/instrument'], ['函数 AST 改写：在入口和返回处接上 hook', '#/source/func-ast'], ['Trampoline 三层模型', '#/source/trampoline'], ['跨包符号桥', '#/source/linkname'], ['实验 02 与 04：AST 改写与真实 hook', '#/labs']],
+      question: '为什么 tjump 把 OnExit 放在 `else` 分支里的 `defer`？',
+      answer: '`skip` 几乎总是 false，`else` 总会执行；用 `defer` 才能在原函数任何返回路径上运行 OnExit。'},
+    {id: 'hack-optimize', title: 'AST 优化', path: 'zh/hacking/optimize.html', coverage: 'partial',
+      says: '缺少 OnEnter 或 OnExit、或不使用 SkipCall 时，改写 tjump 的条件和分支，让编译器的死代码消除去掉多余部分。',
+      gap: '优化依赖 if 骨架保持不变，所以修改 tjump 结构的改动都要重新验证性能和语义。',
+      read: [['函数 AST 改写：在入口和返回处接上 hook', '#/source/func-ast'], ['Trampoline 三层模型', '#/source/trampoline'], ['AST 与 DST：把源码变成可安全改写的树', '#/learn/ast']],
+      question: '没有 OnExit hook 时，为什么不直接删掉整个 `else` 块？',
+      answer: '同一函数可能有多个 tjump，后面的嵌套在 `else` 块里；官方的做法是把 `defer` 换成空语句。'},
+    {id: 'hack-debug', title: '调试', path: 'zh/hacking/debug.html', coverage: 'partial',
+      says: '`otel set -debug` 构建未优化的二进制并保留临时文件，`-verbose` 输出详细过程；`.otel-build` 里保存注入代码、原文件备份和匹配到的规则。',
+      gap: '先确认问题在哪一层：规则没命中、代码没注入、hook 没执行，还是数据没导出。不同层看不同证据。',
+      read: [['调试与验证：从“没 Span”定位到具体层', '#/learn/debugging'], ['从 otel go build 到目标二进制：动手读日志', '#/learn/build'], ['实验 04：普通与插桩输出对照', '#/labs']],
+      question: '怀疑规则没有命中，先看 `.otel-build` 里的哪个文件？',
+      answer: '`preprocess/matched_rules.json`，它记录预处理阶段匹配到的规则。'}
+  ]}
+];
+
+const officialFirstPath = ['user-index', 'hack-overview', 'hack-preprocess', 'hack-instrument', 'dev-rule-types', 'dev-register', 'dev-hook', 'hack-debug'];
+
+const officialPages = officialGroups.flatMap(g => g.pages.map(p => ({...p, group: g})));
+
+const officialUrl = p => officialSite.base + p.path;
+
+function renderOfficialPage(id, {inline, escape}) {
+  const index = Math.max(0, officialPages.findIndex(p => p.id === id));
+  const p = officialPages[index], prev = officialPages[index - 1], next = officialPages[index + 1];
+  const [coverage, coverageDetail] = coverageLabels[p.coverage];
+  const firstPath = officialFirstPath.map((pid, i) => {
+    const page = officialPages.find(x => x.id === pid);
+    return `<a class="tag" href="#/official/${pid}">${i + 1}. ${escape(page.group.title)} · ${escape(page.title)}</a>`;
+  }).join('');
+  const list = officialGroups.map(g => `<div class="nav-label">${escape(g.title)} · ${escape(g.en)}</div>${g.pages.map(x => `<a class="source-item ${x.id === p.id ? 'active' : ''}" href="#/official/${x.id}" ${x.id === p.id ? 'aria-current="page"' : ''}><span class="num">${String(officialPages.findIndex(y => y.id === x.id) + 1).padStart(2, '0')}</span><span>${escape(x.title)}<small>${escape(coverageLabels[x.coverage][0])}</small></span></a>`).join('')}`).join('');
+  return `<header class="source-intro"><div class="eyebrow">对照官方文档 / 官方说“怎么用”，这里补“为什么”</div><h1>跟着官方文档读，每页接上例子与源码。</h1><p class="source-plain">左边按 <a href="${escape(officialSite.base)}zh/" target="_blank" rel="noopener noreferrer">LoongSuite Go 官方文档</a> 的侧栏顺序排列。建议把官方页面和这里并排打开：先读官方原文，再按“在本指南中接着读”的顺序看例子、动画和源码。</p><div class="toolbar"><a class="btn" href="${escape(officialUrl(p))}" target="_blank" rel="noopener noreferrer">打开官方原文 ↗</a><a class="btn light" href="${escape(officialSite.base)}" target="_blank" rel="noopener noreferrer">English docs ↗</a></div><div class="callout"><b>版本对应：</b>官方文档随 <code>main</code> 更新，本指南源码固定 v1.15.0。${inline(officialSite.diffNote)}核对日期 ${escape(officialSite.checked)}，<code>main</code> 提交 <code>${escape(officialSite.mainCommit.slice(0, 7))}</code>。</div><p><b>第一次读，想弄懂原理：</b></p><p>${firstPath}</p></header><div class="source-layout"><nav class="source-list" aria-label="官方文档目录">${list}</nav><article class="source-detail"><div class="eyebrow">${escape(p.group.title)} · ${escape(coverage)}</div><h2>${escape(p.title)}</h2><p class="source-path"><a href="${escape(officialUrl(p))}" target="_blank" rel="noopener noreferrer">${escape(officialUrl(p))} ↗</a></p><section class="article-section"><h3>官方这页讲什么</h3><p>${inline(p.says)}</p></section><section class="article-section"><h3>初学者容易卡在哪里</h3><p>${inline(p.gap)}</p></section><section class="article-section"><h3>在本指南中接着读</h3><p class="source-path" style="border:0;padding:0;margin:0 0 8px">${escape(coverageDetail)}</p><ol>${p.read.map(([label, href]) => `<li><a href="${escape(href)}">${escape(label)}</a></li>`).join('')}</ol></section><section class="article-section"><h3>读完自测</h3><details><summary>${inline(p.question)}</summary><p>${inline(p.answer)}</p></details></section><nav class="prev-next" aria-label="官方文档上一页与下一页">${prev ? `<a href="#/official/${prev.id}">← ${escape(prev.group.title)} · ${escape(prev.title)}</a>` : '<span></span>'}${next ? `<a href="#/official/${next.id}">${escape(next.group.title)} · ${escape(next.title)} →</a>` : '<span></span>'}</nav></article></div>`;
+}
+
 
 const $=s=>document.querySelector(s), app=$('#app');
 const escape=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -13609,9 +13772,9 @@ function toast(msg){$('#toast').textContent=msg;$('#toast').classList.add('visib
 const number=id=>String(chapters.findIndex(c=>c.id===id)+1).padStart(2,'0');
 const codeBlock=(code,lang='text',numbered=true)=>`<div class="code-frame"><div class="code-bar"><span>${escape(lang.toUpperCase())}</span><button class="copy-btn" data-copy>复制代码</button></div><pre><code>${escape(code).split('\n').map((s,i)=>`${numbered?`<span class="line-number" aria-hidden="true">${String(i+1).padStart(2,'0')}</span>`:''}${s}`).join('\n')}</code></pre><span hidden data-raw>${escape(code)}</span></div>`;
 function footer(){return `<footer class="footer"><span>LoongSuite Go Field Guide · 中文学习手册</span><span>源码固定 v1.15.0 / cac4009 · 2026-10-29 实例动画更新</span></footer>`;}
-function sidebar(route){return `<aside class="sidebar" id="sidebar" aria-label="课程导航"><a class="brand" href="#/"><span class="brand-mark" aria-hidden="true">L</span><span>LoongSuite Go<small>THE ENGINEERING FIELD GUIDE</small></span></a><button class="search-launch" data-search><span>⌕　搜索手册</span><span class="key">⌘ K</span></button><nav class="utility-nav" aria-label="手册工具">${[['/','◈','学习路线'],['/start','01','从零开始 · 七小步'],['/source','⌘','源码地图'],['/labs','⌁','动手实验'],['/glossary','Aa','术语速查'],['/resources','↗','编写方法与资源']].map(([path,icon,label])=>`<a href="#${path}" class="${(route===path||path!=='/'&&route.startsWith(path+'/'))?'active':''}" ${(route===path||path!=='/'&&route.startsWith(path+'/'))?'aria-current="page"':''}><span aria-hidden="true">${icon}</span>${label}</a>`).join('')}</nav><nav class="chapter-nav" aria-label="分阶课程">${['基础','机制','源码','二开'].map(stage=>`<div class="nav-label">${({基础:'01 / 建立基础',机制:'02 / 理解机制',源码:'03 / 阅读实现',二开:'04 / 开始二开'})[stage]}</div>${chapters.filter(c=>c.stage===stage).map(c=>`<a href="${chapterLink(c.id)}" class="${route===`/learn/${c.id}`?'active':''}" ${route===`/learn/${c.id}`?'aria-current="page"':''}><span class="chapter-number ${state.done.includes(c.id)?'done':''}">${state.done.includes(c.id)?'✓':number(c.id)}</span><span>${escape(c.title.split('：')[0])}</span></a>`).join('')}`).join('')}</nav><div class="sidebar-footer"><div>你的学习进度 <b data-progress-label>${state.done.length} / ${chapters.length}</b></div><div class="progress-track" role="progressbar" aria-label="已完成章节" aria-valuemin="0" aria-valuemax="${chapters.length}" aria-valuenow="${state.done.length}"><span style="width:${state.done.length/chapters.length*100}%"></span></div><span>进度与笔记保存在当前浏览器</span></div></aside><div class="mobile-scrim" data-close-menu></div>`;}
+function sidebar(route){return `<aside class="sidebar" id="sidebar" aria-label="课程导航"><a class="brand" href="#/"><span class="brand-mark" aria-hidden="true">L</span><span>LoongSuite Go<small>THE ENGINEERING FIELD GUIDE</small></span></a><button class="search-launch" data-search><span>⌕　搜索手册</span><span class="key">⌘ K</span></button><nav class="utility-nav" aria-label="手册工具">${[['/','◈','学习路线'],['/start','01','从零开始 · 七小步'],['/official','官','对照官方文档'],['/source','⌘','源码地图'],['/labs','⌁','动手实验'],['/glossary','Aa','术语速查'],['/resources','↗','编写方法与资源']].map(([path,icon,label])=>`<a href="#${path}" class="${(route===path||path!=='/'&&route.startsWith(path+'/'))?'active':''}" ${(route===path||path!=='/'&&route.startsWith(path+'/'))?'aria-current="page"':''}><span aria-hidden="true">${icon}</span>${label}</a>`).join('')}</nav><nav class="chapter-nav" aria-label="分阶课程">${['基础','机制','源码','二开'].map(stage=>`<div class="nav-label">${({基础:'01 / 建立基础',机制:'02 / 理解机制',源码:'03 / 阅读实现',二开:'04 / 开始二开'})[stage]}</div>${chapters.filter(c=>c.stage===stage).map(c=>`<a href="${chapterLink(c.id)}" class="${route===`/learn/${c.id}`?'active':''}" ${route===`/learn/${c.id}`?'aria-current="page"':''}><span class="chapter-number ${state.done.includes(c.id)?'done':''}">${state.done.includes(c.id)?'✓':number(c.id)}</span><span>${escape(c.title.split('：')[0])}</span></a>`).join('')}`).join('')}</nav><div class="sidebar-footer"><div>你的学习进度 <b data-progress-label>${state.done.length} / ${chapters.length}</b></div><div class="progress-track" role="progressbar" aria-label="已完成章节" aria-valuemin="0" aria-valuemax="${chapters.length}" aria-valuenow="${state.done.length}"><span style="width:${state.done.length/chapters.length*100}%"></span></div><span>进度与笔记保存在当前浏览器</span></div></aside><div class="mobile-scrim" data-close-menu></div>`;}
 function shell(route,content,breadcrumb){return `${sidebar(route)}<div class="shell"><header class="topbar"><div class="topbar-left"><button class="icon-btn mobile-menu" data-menu aria-controls="sidebar" aria-expanded="false" aria-label="打开课程导航">☰</button><span>FIELD NOTES</span><b>${escape(breadcrumb)}</b></div><div class="top-actions"><span class="version">v1.15.0 · 固定源码</span><button class="icon-btn print-btn" data-print>打印 / PDF</button><button class="icon-btn" data-export title="导出学习笔记">导出笔记 ↓</button></div></header><main id="main" class="page" tabindex="-1">${content}${footer()}</main></div>`;}
-function overview(){const stages=[['基础','先把 Go 与遥测说清楚','知道每个对象是谁、每个 ID 从哪来。'],['机制','跟随一次构建','从编译输入，走到能运行的探针。'],['源码','把图映射到函数','进入规则、跳板与运行时桥接。'],['二开','做一个能证明的改动','写规则、保语义、测兼容与回滚。']];return `<section class="hero"><div><div class="eyebrow">A GUIDED JOURNEY · 从 0 到能二开</div><h1>读懂插桩，<br>再亲手<em>改写。</em></h1><p>先从一个查房间的函数开始，弄清包、模块和构建。理解为什么需要观察代码，再一步步走到 LoongSuite 的真实实现。</p><div class="hero-footer"><a class="btn" href="${state.done.length?chapterLink(state.last):'#/start/1'}">${state.done.length?'继续学习':'从零开始 · 第一步'} <span>→</span></a><a class="btn light" href="#/source/deps">为什么要补依赖？ ↗</a><a class="btn light" href="#/source/preprocess">看三轮准备的实例动画 ↗</a></div></div><figure class="hero-figure"><div class="figure-label">先看两段时间，暂时不用背名词</div>${plainFlow([['源码','你编写的 .go 文件'],['构建','工具准备依赖并加工代码'],['运行','启动生成的程序，处理请求']],escape)}<figcaption class="figure-caption">LoongSuite 参与“构建”，把观察动作接入程序。<br>程序“运行”时，这些动作才真正记录请求。</figcaption></figure></section><div class="learning-meta"><span><b>7</b>入门小步</span><span><b>${chapters.length}</b>递进章节</span><span><b>${sourceMap.length}</b>源码入口</span><span><b>${labRegistry.length}</b>本地实验</span><span>阅读 + 实践约 ${Math.round(chapters.reduce((n,c)=>n+c.minutes,0)/60)} 小时，按自己的节奏推进</span></div><section><div class="section-head"><h2>从基础，到可验证的二开</h2><p>建议顺序阅读；已有基础可以直接进入对应章节。</p></div><div class="roadmap">${stages.map(([name,title,desc],i)=>`<section class="stage"><div class="stage-index">STAGE ${String(i+1).padStart(2,'0')}</div><h3>${title}</h3><p>${desc}</p><ul>${chapters.filter(c=>c.stage===name).map(c=>`<li><a href="${chapterLink(c.id)}"><span>${number(c.id)}</span>${escape(c.title.split('：')[0])} ${state.done.includes(c.id)?'✓':'↗'}</a></li>`).join('')}</ul></section>`).join('')}</div></section><aside class="practice-banner"><div><div class="eyebrow" style="color:var(--lime);margin-bottom:10px">LEARN BY CHANGING ONE THING</div><h2>从“我看懂了”，走到“我能证明”。</h2><p>改一次 context、一个版本区间、一段 hook。比较输入、输出与父子关系，再回到源码解释原因。</p></div><a href="#/labs" class="btn lime">打开实验台 →</a></aside><div class="promise-grid"><section><h2>你最终要交付什么？</h2><p>一个自己的自定义规则、匹配的 hook、原版与插桩的对照输出、一份兼容矩阵。毕业课会把这些组装成一次完整、可回滚的二开。</p><a href="${chapterLink('capstone')}">查看毕业项目与验收条件 →</a></section><section><h2>这份手册如何建立信任？</h2><p>源码链接固定到提交；页面交互标明是教学模型；实验独立记录真实执行状态。上游能力、已有 OTel 服务的兼容设计、未验证边界分别说明。</p><a href="#/resources">查看参考方法与来源 →</a></section></div><div class="callout"><b>学习约定</b>　会写基本 Go 函数即可开始。不要先把所有规则读一遍：先跑通一个小实验，再追踪它对应的编译路径。网站不执行 Go；实验包在你的本地终端运行。</div><div class="toolbar"><a class="btn light" href="./assets/labs.zip" download>下载本地实验包 ↓</a><a class="btn light" href="./offline.html" download>下载离线单文件手册 ↓</a><a class="btn light" href="./guide.md" download>下载 Markdown 正文 ↓</a></div>`;}
+function overview(){const stages=[['基础','先把 Go 与遥测说清楚','知道每个对象是谁、每个 ID 从哪来。'],['机制','跟随一次构建','从编译输入，走到能运行的探针。'],['源码','把图映射到函数','进入规则、跳板与运行时桥接。'],['二开','做一个能证明的改动','写规则、保语义、测兼容与回滚。']];return `<section class="hero"><div><div class="eyebrow">A GUIDED JOURNEY · 从 0 到能二开</div><h1>读懂插桩，<br>再亲手<em>改写。</em></h1><p>先从一个查房间的函数开始，弄清包、模块和构建。理解为什么需要观察代码，再一步步走到 LoongSuite 的真实实现。</p><div class="hero-footer"><a class="btn" href="${state.done.length?chapterLink(state.last):'#/start/1'}">${state.done.length?'继续学习':'从零开始 · 第一步'} <span>→</span></a><a class="btn light" href="#/official">跟着官方文档读 ↗</a><a class="btn light" href="#/source/deps">为什么要补依赖？ ↗</a><a class="btn light" href="#/source/preprocess">看三轮准备的实例动画 ↗</a></div></div><figure class="hero-figure"><div class="figure-label">先看两段时间，暂时不用背名词</div>${plainFlow([['源码','你编写的 .go 文件'],['构建','工具准备依赖并加工代码'],['运行','启动生成的程序，处理请求']],escape)}<figcaption class="figure-caption">LoongSuite 参与“构建”，把观察动作接入程序。<br>程序“运行”时，这些动作才真正记录请求。</figcaption></figure></section><div class="learning-meta"><span><b>7</b>入门小步</span><span><b>${chapters.length}</b>递进章节</span><span><b>${sourceMap.length}</b>源码入口</span><span><b>${labRegistry.length}</b>本地实验</span><span>阅读 + 实践约 ${Math.round(chapters.reduce((n,c)=>n+c.minutes,0)/60)} 小时，按自己的节奏推进</span></div><section><div class="section-head"><h2>从基础，到可验证的二开</h2><p>建议顺序阅读；已有基础可以直接进入对应章节。</p></div><div class="roadmap">${stages.map(([name,title,desc],i)=>`<section class="stage"><div class="stage-index">STAGE ${String(i+1).padStart(2,'0')}</div><h3>${title}</h3><p>${desc}</p><ul>${chapters.filter(c=>c.stage===name).map(c=>`<li><a href="${chapterLink(c.id)}"><span>${number(c.id)}</span>${escape(c.title.split('：')[0])} ${state.done.includes(c.id)?'✓':'↗'}</a></li>`).join('')}</ul></section>`).join('')}</div></section><aside class="practice-banner"><div><div class="eyebrow" style="color:var(--lime);margin-bottom:10px">LEARN BY CHANGING ONE THING</div><h2>从“我看懂了”，走到“我能证明”。</h2><p>改一次 context、一个版本区间、一段 hook。比较输入、输出与父子关系，再回到源码解释原因。</p></div><a href="#/labs" class="btn lime">打开实验台 →</a></aside><div class="promise-grid"><section><h2>你最终要交付什么？</h2><p>一个自己的自定义规则、匹配的 hook、原版与插桩的对照输出、一份兼容矩阵。毕业课会把这些组装成一次完整、可回滚的二开。</p><a href="${chapterLink('capstone')}">查看毕业项目与验收条件 →</a></section><section><h2>这份手册如何建立信任？</h2><p>源码链接固定到提交；页面交互标明是教学模型；实验独立记录真实执行状态。上游能力、已有 OTel 服务的兼容设计、未验证边界分别说明。</p><a href="#/resources">查看参考方法与来源 →</a></section></div><div class="callout"><b>学习约定</b>　会写基本 Go 函数即可开始。不要先把所有规则读一遍：先跑通一个小实验，再追踪它对应的编译路径。网站不执行 Go；实验包在你的本地终端运行。</div><div class="toolbar"><a class="btn light" href="./assets/labs.zip" download>下载本地实验包 ↓</a><a class="btn light" href="./offline.html" download>下载离线单文件手册 ↓</a><a class="btn light" href="./guide.md" download>下载 Markdown 正文 ↓</a></div>`;}
 function renderSection(s,i){return `<section class="article-section" id="section-${i}"><h2>${escape(s.title)}</h2>${(s.paragraphs||[]).map(p=>`<p>${inline(p)}</p>`).join('')}${s.code?codeBlock(s.code,s.language):''}${s.note?`<aside class="callout">${inline(s.note)}</aside>`:''}</section>`;}
 function chapterPage(c,print=false){const idx=chapters.indexOf(c);const checks=state.checks[c.id]||[],answers=state.answers[c.id]||{};const body=`<article class="article"><header class="chapter-header"><div class="eyebrow">LESSON ${number(c.id)} / ${c.stage}</div><h1>${escape(c.title)}</h1><p class="subtitle">${escape(c.subtitle)}</p><div class="chapter-info"><span>建议 ${c.minutes} 分钟 · 含实践</span><span>前置：${c.prerequisites.map(p=>chapters.find(x=>x.id===p)?.title.split('：')[0]||p).map(escape).join(' / ')}</span></div></header>${renderChapterBridge(c,{inline,escape})}<section class="outcomes"><h2>完成本章，你能做到</h2><ul>${c.outcomes.map(t=>`<li>${inline(t)}</li>`).join('')}</ul></section>${print?'':c.stage==='基础'?plainFlow([['普通函数','先理解原来的动作'],['观察代码','解释为何需要增加记录'],['自动接入','再到源码核实怎样做到']],escape):c.visual==='pipeline'?'':renderVisual(c.visual||'pipeline')}${c.sections.map(renderSection).join('')}<section class="article-section" id="source-reading"><h2>回到源码，带着问题读</h2><ol class="source-walk">${c.walkthrough.map(w=>`<li><div><a href="${escape(w.url)}" target="_blank" rel="noopener noreferrer">${escape(w.file)} ↗</a><p><strong>${escape(w.symbol)}</strong> · ${inline(w.task)}</p></div></li>`).join('')}</ol><a href="#/source">在源码地图中按调用路径定位 →</a></section><section class="article-section" id="lab"><div class="lab-box"><div class="eyebrow">TRY IT YOURSELF</div><h2>${escape(c.lab.title)}</h2><ol>${c.lab.steps.map(s=>`<li>${inline(s)}</li>`).join('')}</ol>${codeBlock(c.lab.command,'sh')}<div class="expected"><b>观察与验收：</b>${inline(c.lab.expected)}</div><p style="margin-top:16px;margin-bottom:0"><b>再改一步：</b>${inline(c.lab.challenge)}</p></div><div class="callout">可运行实验与真实验证状态见 <a href="#/labs">动手实验页</a>。正文内的概念代码若没有完整模块、import 和测试，是阅读示意，不是可直接运行的完整程序。</div></section><section class="article-section" id="quiz"><h2>先回答，再继续</h2>${c.quiz.map((q,i)=>`<fieldset class="quiz" data-quiz="${i}"><legend>${i+1}. ${escape(q.q)}</legend>${q.options.map((o,j)=>`<label class="quiz-option"><input type="radio" name="quiz-${c.id}-${i}" value="${j}" ${answers[i]===j?'checked':''}><span>${inline(o)}</span></label>`).join('')}<div class="feedback ${answers[i]===q.answer?'':'incorrect'}" ${answers[i]===undefined?'hidden':''}>${answers[i]===q.answer?'✓ 回答正确。':'再想一想。'} ${inline(q.explanation)}</div></fieldset>`).join('')}</section><section class="article-section" id="checkpoint"><h2>本章能力检查</h2><p>测验正确后，再确认你能独立完成以下动作。自评用于帮助学习，不代替实验执行记录。</p><div class="checkpoint">${c.checkpoint.map((s,i)=>`<label><input type="checkbox" data-check="${i}" ${checks.includes(i)?'checked':''}><span>${inline(s)}</span></label>`).join('')}<div class="completion-row"><button class="btn" data-complete>${state.done.includes(c.id)?'✓ 已完成本章':'标记本章完成'}</button><small data-completion-help></small></div></div></section><section class="article-section" id="notes"><h2>写下你自己的解释</h2><label class="notes-label" for="chapter-notes"><span>用三句话说明：它解决什么、在哪里实现、怎样验证。</span><span data-note-status>自动保存到浏览器</span></label><textarea id="chapter-notes" class="notes" placeholder="我原先以为…\n通过实验发现…\n接下来我要在源码中确认…">${escape(state.notes[c.id]||'')}</textarea></section><section class="article-section" id="references"><h2>本章来源</h2><ul>${c.sources.map(s=>`<li><a href="${escape(s.url)}" target="_blank" rel="noopener noreferrer">${escape(s.title)} ↗</a></li>`).join('')}</ul></section>${print?'':`<nav class="prev-next" aria-label="相邻章节">${idx>0?`<a href="${chapterLink(chapters[idx-1].id)}"><small>← 上一章</small>${escape(chapters[idx-1].title)}</a>`:'<a href="#/"><small>← 回到路线</small>查看学习全景</a>'}${idx<chapters.length-1?`<a href="${chapterLink(chapters[idx+1].id)}"><small>下一章 →</small>${escape(chapters[idx+1].title)}</a>`:'<a href="#/labs"><small>继续实践 →</small>打开实验与二开任务</a>'}</nav>`}</article>`;return print?body:`<div class="chapter-layout">${body}<aside class="toc" aria-label="本章目录"><h2>本章阅读路径</h2><a href="#chapter-bridge" data-scroll="chapter-bridge">先解释为什么与新名词</a>${c.sections.map((s,i)=>`<a href="#section-${i}" data-scroll="section-${i}">${escape(s.title)}</a>`).join('')}${[['source-reading','源码阅读'],['lab','动手练习'],['quiz','检查理解'],['checkpoint','能力检查'],['notes','我的笔记']].map(([id,t])=>`<a href="#${id}" data-scroll="${id}">${t}</a>`).join('')}<div class="toc-tools"><a href="./assets/labs.zip" download>下载实验包 ↓</a><a href="./offline.html" download>离线手册 ↓</a></div></aside></div>`;}
 function sourcePage(selected=sourceMap[0]?.id){const s=sourceMap.find(x=>x.id===selected)||sourceMap[0];return renderSourcePage(s,sourceLessons[s.id],sourceMap,{inline,escape,codeBlock});}
@@ -13619,7 +13782,9 @@ function labsPage(){return `<div class="eyebrow">THE WORKBENCH / 运行以后再
 function resourcesPage(){return `<div class="eyebrow">WRITING THE GUIDE / 编写方法与模板</div><h1>好的指南，先设计学习。</h1><div class="toolbar"><a class="btn light" href="./guide-authoring-resources.md" download>下载资源对比 ↓</a><a class="btn light" href="./chapter-template.md" download>下载章节模板 ↓</a></div><p>这些资源承担不同工作：skill 帮助组织与审稿，方法决定学习体验，文档框架负责呈现。下面是针对这份 Go 源码课程的选择依据，核对日期为 2026-10-27。</p><div class="callout"><b>本次选择：</b>teach 的分阶反馈 + Diátaxis 的内容分工 + Google 的读者与示例方法 + doc-coauthoring 的读者检验思路。界面采用原生 HTML/CSS/JS，便于离线与自定义图解；没有为了套模板而引入 React/Vue。下列安装命令是可选参考，本次没有全局安装这些 skill 或框架。</div><div class="table-scroll"><table class="reference-table"><thead><tr><th>你需要什么</th><th>优先考虑</th><th>选择原因</th></tr></thead><tbody><tr><td>从零学会一套技术</td><td>Diátaxis + 可验证实验</td><td>先设计读者动作和成功反馈，再补解释。</td></tr><tr><td>让 AI 协助写长文</td><td>doc-coauthoring</td><td>先整理证据与读者目标，再做无上下文读者检查。</td></tr><tr><td>长期维护内容型文档</td><td>Starlight</td><td>现成文档导航、搜索与组件，维护成本相对集中。</td></tr><tr><td>在文中加入复杂互动</td><td>VitePress / Docusaurus</td><td>分别利用 Vue / React 组件；选择团队熟悉的生态。</td></tr><tr><td>短篇但深入的互动手册</td><td>原生网页 + 小组件</td><td>可离线、无需构建依赖，交互围绕学习问题设计。</td></tr></tbody></table></div>${resources.map(r=>`<section class="resource-item"><div><span class="tag">${escape(r.kind)}</span><h2 style="font-size:20px;margin:12px 0 6px">${escape(r.name)}</h2><a href="${escape(r.url)}" target="_blank" rel="noopener noreferrer">官方 / GitHub ↗</a></div><div><p><b>适合：</b>${inline(r.fit)}</p><p><b>局限：</b>${inline(r.limit)}</p><p><b>本指南的借鉴：</b>${inline(r.adopt)}</p><a href="${escape(r.docs)}" target="_blank" rel="noopener noreferrer">阅读原始说明 ↗</a>${r.install?codeBlock(r.install,'sh'):''}</div></section>`).join('')}<section class="article-section"><h2>一份可以复用的教学章节模板</h2><p>模板的关键是让每一步产出证据，而不是每章重复“概述、特点、总结”。复制后，用具体函数、版本和输出替换泛化内容。</p>${codeBlock(lessonTemplate,'markdown')}</section><section class="article-section"><h2>本手册的质量门槛</h2><ol><li>每个术语在第一次出现时解释，并能连回具体源码。</li><li>源码路径存在，链接固定到提交，阅读问题有明确目标。</li><li>可运行代码必须有命令、前置、预期和真实状态；示意代码清楚标注。</li><li>图解表达因果，不用装饰动画替代解释。</li><li>完成不等于读过：你能复现实验、修改输入，再解释差异。</li></ol></section>`;}
 function glossaryPage(){return `<div class="eyebrow">THE GLOSSARY / 快速找回概念</div><h1>让每个名词都有落点。</h1><p>阅读源码时遇到陌生词，先确认它属于编译期、运行时，还是采集后端。不要把同一层的对象混作另一层的能力。</p><label class="sr-only" for="glossary-search">筛选术语</label><input class="filter-input" id="glossary-search" type="search" placeholder="搜索 AST、carrier、GLS…"><dl class="glossary">${glossary.map(([term,def])=>`<div data-term><dt>${escape(term)}</dt><dd>${inline(def)}</dd></div>`).join('')}</dl>`;}
 function getRoute(){const raw=location.hash.slice(1)||'/';return raw.startsWith('/')?raw:'/';}
-function render(){disposeLessonDemos();const route=getRoute(),[_,type,id]=route.split('/');currentRoute=route;let content,label;if(type==='learn'){const c=chapters.find(c=>c.id===id);if(!c){location.hash='/';return;}state.last=c.id;persist();content=chapterPage(c);label=`${number(c.id)} / ${c.title.split('：')[0]}`;}else if(type==='start'){content=renderZeroPage(id,{inline,escape,codeBlock});label='从零开始 · 七小步';}else if(type==='source'){content=sourcePage(id);label='源码地图';}else if(type==='labs'){content=labsPage();label='动手实验';}else if(type==='resources'){content=resourcesPage();label='编写方法与资源';}else if(type==='glossary'){content=glossaryPage();label='术语速查';}else{content=overview();label='学习路线';}
+function render(){disposeLessonDemos();const route=getRoute(),[_,type,id]=route.split('/');currentRoute=route;let content,label;if(type==='learn'){const c=chapters.find(c=>c.id===id);if(!c){location.hash='/';return;}state.last=c.id;persist();content=chapterPage(c);label=`${number(c.id)} / ${c.title.split('：')[0]}`;}else if(type==='start'){content=renderZeroPage(id,{inline,escape,codeBlock});label='从零开始 · 七小步';}else if(type==='official'){content=renderOfficialPage(id,{inline,escape})
+label='对照官方文档'
+}else if(type==='source'){content=sourcePage(id);label='源码地图';}else if(type==='labs'){content=labsPage();label='动手实验';}else if(type==='resources'){content=resourcesPage();label='编写方法与资源';}else if(type==='glossary'){content=glossaryPage();label='术语速查';}else{content=overview();label='学习路线';}
  app.innerHTML=shell(route,content,label);document.title=`${label} · LoongSuite Go 学习手册`;bindVisual(app);disposeLessonDemos=bindLessonDemos(app);bindGeneral();if(type==='learn')bindChapter(chapters.find(c=>c.id===id));if(type==='source')bindSource();if(type==='glossary')$('#glossary-search').addEventListener('input',e=>app.querySelectorAll('[data-term]').forEach(n=>n.hidden=!n.textContent.toLowerCase().includes(e.target.value.toLowerCase())));window.scrollTo(0,0);
 }
 function bindGeneral(){app.querySelectorAll('[data-search]').forEach(b=>b.onclick=openSearch);app.querySelectorAll('[data-copy]').forEach(b=>b.onclick=()=>copy(b.closest('.code-frame').querySelector('[data-raw]').textContent));app.querySelectorAll('[data-scroll]').forEach(a=>a.onclick=e=>{e.preventDefault();document.getElementById(a.dataset.scroll)?.scrollIntoView({behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'auto':'smooth'});});app.querySelectorAll('[data-export]').forEach(b=>b.onclick=exportNotes);app.querySelectorAll('[data-print]').forEach(b=>b.onclick=()=>window.print());app.querySelector('[data-menu]')?.addEventListener('click',()=>{const open=$('.sidebar').classList.toggle('open');$('.mobile-scrim').classList.toggle('open',open);$('[data-menu]').setAttribute('aria-expanded',String(open));});app.querySelector('[data-close-menu]')?.addEventListener('click',()=>{$('.sidebar').classList.remove('open');$('.mobile-scrim').classList.remove('open');$('[data-menu]').setAttribute('aria-expanded','false');});}
@@ -13634,6 +13799,7 @@ function search(q){const word=q.toLowerCase().trim();const hits=[];
  for(const [i,s]of zeroSteps.entries()){const text=[s.title,s.question,...s.paragraphs,...s.terms.map(t=>t.term+' '+t.meaning),demoSearchText('zero',s.id)].join(' ');if(!word||text.toLowerCase().includes(word))hits.push({title:`从零 ${i+1} · ${s.title}`,url:`#/start/${i+1}`,detail:s.question});}
  for(const c of chapters){const text=[c.title,c.subtitle,...c.sections.flatMap(s=>[s.title,...s.paragraphs]),...c.bridge.terms.map(t=>t.term+' '+t.meaning),demoSearchText('chapter',c.id)].join(' ');if(!word||text.toLowerCase().includes(word)){const at=text.toLowerCase().indexOf(word);hits.push({title:`${number(c.id)} · ${c.title}`,url:chapterLink(c.id),detail:word?text.slice(Math.max(0,at-25),at+100):c.subtitle});}}
  for(const s of sourceMap){const lesson=sourceLessons[s.id];if(word&&[s.title,s.path,s.symbol,s.role,lesson.title,lesson.plain,...lesson.terms.map(t=>t.term+' '+t.meaning),demoSearchText('source',s.id)].join(' ').toLowerCase().includes(word))hits.push({title:lesson.title,url:`#/source/${s.id}`,detail:s.path});}
+ for(const p of officialPages)if(word&&[p.title,p.group.title,p.says,p.gap,p.question].join(' ').toLowerCase().includes(word))hits.push({title:`官方文档对照 · ${p.group.title} · ${p.title}`,url:`#/official/${p.id}`,detail:p.path})
  $('#search-results').innerHTML=hits.length?hits.slice(0,30).map(x=>`<a href="${x.url}">${escape(x.title)}<small>${escape(x.detail)}</small></a>`).join(''):'<p class="empty">没有匹配结果。试试 module、依赖、context、采样或 hook。</p>';$('#search-results').querySelectorAll('a').forEach(a=>a.onclick=()=>dialog.close());}
 function exportNotes(){let text='# LoongSuite Go 学习记录\n\n源码版本：v1.15.0 / cac400935add57d8219122ba32857b8f55ac6eb1\n\n';for(const c of chapters){text+=`## ${number(c.id)} ${c.title}\n\n状态：${state.done.includes(c.id)?'已完成':'学习中 / 未完成'}\n\n${state.notes[c.id]||'（暂无笔记）'}\n\n`;for(const [i,item]of c.checkpoint.entries())text+=`- [${(state.checks[c.id]||[]).includes(i)?'x':' '}] ${item}\n`;text+='\n';}const url=URL.createObjectURL(new Blob([text],{type:'text/markdown;charset=utf-8'})),a=document.createElement('a');a.href=url;a.download='loongsuite-learning-notes.md';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);toast('学习笔记已导出');}
 document.querySelector('.skip').addEventListener('click',e=>{e.preventDefault();$('#main').focus();$('#main').scrollIntoView();});

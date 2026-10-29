@@ -297,6 +297,311 @@ A、01、02、03 是便于阅读的教学标识，不是合法的 OTel ID 编码
 带走一句话：你接下来的目标是理解“怎样接对父节点”，而不只是“有没有相同的 ID”。
 
 
+# 对照官方文档阅读
+
+顺序跟随 [LoongSuite Go 官方文档](https://alibaba.github.io/loongsuite-go/zh/)。核对日期 2026-10-29。核对日 `main` 与固定版本 v1.15.0 的 `docs/` 只有一处差异：支持库表中 zap 的仓库链接写法。工具行为仍以固定版本源码为准。
+
+
+## 用户指南 · 概述与快速开始
+
+[官方原文](https://alibaba.github.io/loongsuite-go/zh/) · 本指南详细展开
+
+官方这页讲什么：安装 `otel` 工具，在 `go build` 前加上 `otel` 前缀即可构建出带 OpenTelemetry 观察能力的程序；官方附有 demo、nethttp、kafka 等示例。
+
+初学者容易卡在哪里：“目标应用无需改代码”容易被理解成“什么代码都没加”。实际上源码文件不改，观察代码是在**构建期间**被加入的，所以要先分清编译时和运行时。
+
+在本指南中接着读：从零 1 · 先有一个普通函数 → 从零 4 · 编译时和运行时是两段时间 → 从零 5 · 工具怎样替我加上前后动作 → 从 otel go build 到目标二进制
+
+自问：源码一行没改，新加的观察动作是在哪个阶段出现的？
+
+参考解释：在构建阶段：工具先准备规则和依赖，再让编译器处理改写后的代码。运行时执行的是这份加工后的二进制。
+
+
+## 用户指南 · 命令行参考
+
+[官方原文](https://alibaba.github.io/loongsuite-go/zh/user/config.html) · 本指南部分覆盖
+
+官方这页讲什么：`otel set` 设置调试、详细日志、自定义规则、禁用默认规则与 Go 缓存目录，同名配置也可用 `OTELTOOL_` 前缀的环境变量临时覆盖；`otel go build` 接收原有构建参数。
+
+初学者容易卡在哪里：`-rule` 与 `-disable` 改变的是**哪些规则进入匹配**，而不是运行时开关。读懂规则文件如何加载，才能判断“设置了却没生效”时该查哪一层。
+
+在本指南中接着读：otel 命令入口 → 规则加载：JSON 先变成具体 Go 类型 → 规则系统：版本范围不是装饰 → 实验 04：用 -disable= 与 -rule 跑真实 hook
+
+自问：执行 `otel set -disable=all -rule=custom.json` 后，官方说哪个规则文件仍然会启用？
+
+参考解释：`base.json`。即使禁用全部默认规则，它也会保留；排查规则来源时要把它算进去。
+
+
+## 用户指南 · 编译时间
+
+[官方原文](https://alibaba.github.io/loongsuite-go/zh/user/compilation-time.html) · 本指南详细展开
+
+官方这页讲什么：使用工具后编译明显变慢：要引入新依赖并整理模块，还因为向标准库注入了代码而每次强制完整重编译。官方给出的增幅约为 92.8%。
+
+初学者容易卡在哪里：为什么“加观察代码”会牵出新依赖，以及新依赖又可能命中新规则，是理解耗时的关键。
+
+在本指南中接着读：从零 6 · 为什么还要“补上依赖” → Preprocess：为什么找两次规则，要准备三次？ → 为观察代码补依赖 → 从 otel go build 到目标二进制
+
+自问：官方建议用哪个配置减少重复构建的时间？
+
+参考解释：`otel set -gocache=<目录>`（或 `OTELTOOL_GO_CACHE`）指定可复用的 Go 缓存目录，避免每次使用临时缓存。
+
+
+## 用户指南 · 实验性功能
+
+[官方原文](https://alibaba.github.io/loongsuite-go/zh/user/experimental-feature.html) · 以官方为准
+
+官方这页讲什么：列出 kratos、nacos、数据库与 Sentinel 的实验性采集开关，均为默认关闭的环境变量。
+
+初学者容易卡在哪里：这些是**运行时**读取的环境变量：改动后不需要重新插桩构建，但要在启动程序的环境里设置。
+
+在本指南中接着读：从零 4 · 编译时和运行时是两段时间 → OpenTelemetry 运行时：Span 从哪里来、到哪里去
+
+自问：设置 `OTEL_INSTRUMENTATION_DB_EXPERIMENTAL_ENABLE=true` 后，需要重新执行 `otel go build` 吗？
+
+参考解释：按官方说明它是程序运行时读取的开关，在启动环境中设置即可；不确定时以新进程的实际输出为准。
+
+
+## 用户指南 · 兼容性
+
+[官方原文](https://alibaba.github.io/loongsuite-go/zh/user/compatibility.html) · 本指南详细展开
+
+官方这页讲什么：跟随 Go 官方的版本支持策略；当前最低 Go 1.25，因为注入的 OTel 模块要求 1.25；并列出经过测试的操作系统、Go 版本与架构。
+
+初学者容易卡在哪里：“兼容”不只有 Go 版本一个数字，还包括目标库的版本区间和 runtime 内部结构。三者要一起看。
+
+在本指南中接着读：兼容性边界：三种版本要一起看 → 版本与多 module → 运行时上下文：GLS、newproc 与真实限制
+
+自问：Go 1.24 在默认设置下为什么还能构建？
+
+参考解释：默认 `GOTOOLCHAIN=auto` 会自动下载 1.25 工具链；改成 `GOTOOLCHAIN=local` 就会失败。
+
+
+## 用户指南 · 手动埋点
+
+[官方原文](https://alibaba.github.io/loongsuite-go/zh/user/manual-instrument.html) · 本指南详细展开
+
+官方这页讲什么：在自动埋点之外，用 `otel.Tracer(...).Start(r.Context(), ...)` 手动创建 Span，它会出现在自动生成的 HTTP Span 之下。
+
+初学者容易卡在哪里：手动 Span 能挂在正确父节点下，前提是传入了携带父 Span 的 context；已有 OTel 服务还要考虑重复埋点。
+
+在本指南中接着读：从零 7 · 从一条耗时记录，到一整条请求 → OpenTelemetry 运行时：Span 从哪里来、到哪里去 → 兼容已有 OTel：去重、入口和消息边界 → 实验 05：真实 TraceID 与父 Span
+
+自问：把示例里的 `r.Context()` 换成 `context.Background()`，手动 Span 会怎样？
+
+参考解释：它通常不再以 HTTP Span 为父节点，而是开始一条新的链路（LoongSuite 的 GLS 可能补救部分场景，见“上下文传播”）。
+
+
+## 用户指南 · 上下文传播
+
+[官方原文](https://alibaba.github.io/loongsuite-go/zh/user/context-propagation.html) · 本指南详细展开
+
+官方这页讲什么：借鉴 SkyWalking Go：创建 Span 时同时存入协程结构（GLS），创建新协程时复制这份数据；context 没传好时，从 GLS 找最近的 Span 作父节点，baggage 同理。
+
+初学者容易卡在哪里：GLS 是补救手段，不等于可以不传 context。预创建的 worker、消息队列等交接点仍可能接错父节点。
+
+在本指南中接着读：Context 与传播：一条链怎样跨 goroutine 和进程 → GLS：工具提供的协程上下文桥 → 运行时上下文：GLS、newproc 与真实限制 → 实验 01 与 06：任务交接与传播头
+
+自问：GLS 在“新协程创建时复制”数据。为什么提前创建好的 worker 处理新任务时仍可能拿错父节点？
+
+参考解释：worker 协程在任务到来之前就创建了，复制发生在那时；之后的任务要靠显式携带 context 才能交接正确的父 Span。
+
+
+## 用户指南 · OpenTelemetry 配置
+
+[官方原文](https://alibaba.github.io/loongsuite-go/zh/user/sdk-config.html) · 本指南部分覆盖
+
+官方这页讲什么：工具会注入 SDK 初始化代码，通过标准 `OTEL_*` 环境变量配置服务名、导出器、OTLP 端点与协议、采样器和 HTTP 排除路径。
+
+初学者容易卡在哪里：采样有两个变量：私有的 `OTEL_TRACE_SAMPLER` 优先级更高且基于父级；标准的 `OTEL_TRACES_SAMPLER=traceidratio` 不基于父级。名字只差一个 S，行为不同。
+
+在本指南中接着读：OpenTelemetry 运行时：Span 从哪里来、到哪里去 → 创建与抑制 Span 的运行时入口 → 实验 05：采样与内存 exporter
+
+自问：想保持“基于父级、50% 比例”的旧行为，并改用标准变量，应该怎么写？
+
+参考解释：`OTEL_TRACES_SAMPLER=parentbased_traceidratio` 配合 `OTEL_TRACES_SAMPLER_ARG=0.5`。
+
+
+## 用户指南 · 支持的库
+
+[官方原文](https://alibaba.github.io/loongsuite-go/zh/user/supported-libraries.html) · 本指南部分覆盖
+
+官方这页讲什么：列出已有规则的库，以及每个库支持的最低、最高版本。
+
+初学者容易卡在哪里：表格里的范围最终落在规则 JSON 的 `Version` 字段，通常是左闭右开区间；依赖版本落在区间外时，规则不会命中，也不会报错。
+
+在本指南中接着读：规则系统：版本范围不是装饰 → 规则 JSON → 编译 action 匹配
+
+自问：规则写 `[1.3.0,1.7.4)`，项目使用 1.7.4，会发生什么？
+
+参考解释：右端点不包含，规则不命中。构建可以成功，但不会出现这条规则对应的观察数据。
+
+
+## 开发者指南 · 概述
+
+[官方原文](https://alibaba.github.io/loongsuite-go/zh/dev/overview.html) · 本指南详细展开
+
+官方这页讲什么：目标库不在支持列表中时，可以自己写规则和 hook 注入观察代码，既能本地使用，也能贡献到仓库。
+
+初学者容易卡在哪里：一次可靠的二开要同时交付规则、hook、原版与插桩的对照输出，以及兼容性说明。
+
+在本指南中接着读：Hook 与 linkname：如何接入而不破坏调用约定 → 毕业项目：为已有 OTel 服务新增一个安全规则 → 实验 04：自定义 hook
+
+自问：开发一个新插件，至少要写哪两样东西？
+
+参考解释：一条注册规则（说明目标函数、版本和 hook 位置）和一段 hook 代码（实际的观察逻辑）。
+
+
+## 开发者指南 · 注册 Hook 规则
+
+[官方原文](https://alibaba.github.io/loongsuite-go/zh/dev/register.html) · 本指南详细展开
+
+官方这页讲什么：在 `tool/data/rules` 下增加 JSON 文件，写明版本区间、导入路径、目标函数、OnEnter 名称和 hook 代码路径。
+
+初学者容易卡在哪里：JSON 只是声明。它先被解析成具体的规则类型，再在编译动作里和真实包、函数匹配。
+
+在本指南中接着读：规则 JSON → 规则加载：JSON 先变成具体 Go 类型 → 规则数据模型 → 实验 04：JSON 规则到真实 hook
+
+自问：官方 mux 示例里，`Path` 字段指向什么？
+
+参考解释：存放 hook 代码的包路径（`pkg/rules/mux`）。它可以是模块路径，也可以是本地目录。
+
+
+## 开发者指南 · 编写 Hook 代码
+
+[官方原文](https://alibaba.github.io/loongsuite-go/zh/dev/hook.html) · 本指南详细展开
+
+官方这页讲什么：hook 是普通 Go 函数，但必须用 `go:linkname` 标注；第一个参数是 `api.CallContext`，OnEnter 其余参数对应目标函数参数，OnExit 对应返回值；可用 `SetParam` / `SetReturnVal` 修改。
+
+初学者容易卡在哪里：签名不匹配或链接名写错时，问题会出现在编译或链接阶段，而且报错不一定直接指向 hook。
+
+在本指南中接着读：自定义 Hook：普通 Go 函数也要遵守连接约定 → CallContext API → 跨包符号桥 → Hook 与 linkname
+
+自问：目标函数是 `func foo(a int) (string, error)`，OnExit hook 的参数是什么？
+
+参考解释：`(call api.CallContext, s string, err error)`：第一个参数是 CallContext，其余对应返回值。
+
+
+## 开发者指南 · 测试 Hook 代码
+
+[官方原文](https://alibaba.github.io/loongsuite-go/zh/dev/test.html) · 以官方为准
+
+官方这页讲什么：在 `test/` 下按库与最低版本建立用例目录，用 verifier 断言产生的 Span，并说明 muzzle、latest-depth 与 world 测试。
+
+初学者容易卡在哪里：本指南的实验用输出断言证明 hook 执行、原结果不变，没有讲解上游的 verifier 测试框架。给上游提规则时，请按官方这页补测试。
+
+在本指南中接着读：调试与验证：从“没 Span”定位到具体层 → 实验 04：普通与插桩输出逐项断言
+
+自问：为一个支持 `v9.0.5` 到最新版本的规则写测试，官方建议先建哪个版本目录？
+
+参考解释：最低版本 `v9.0.5`，先证明区间左端点可用。
+
+
+## 开发者指南 · Hook 规则类型
+
+[官方原文](https://alibaba.github.io/loongsuite-go/zh/dev/rule_def.html) · 本指南详细展开
+
+官方这页讲什么：三类规则：给函数插入入口/出口 hook、在编译某个包时加入新文件、给结构体增加字段，并说明各字段的含义。
+
+初学者容易卡在哪里：`Function` 与 `ReceiverType` 支持正则，范围可能比预期大；字段的真实语义要以加载代码为准，文档与实现偶有出入。
+
+在本指南中接着读：规则数据模型 → 规则集合 → 规则系统：版本范围不是装饰 → Preprocess：给结构体加字段的实例
+
+自问：`Function` 和 `ReceiverType` 都写 `.*` 会匹配什么？
+
+参考解释：该包中的所有函数，包括没有接收者的普通函数。
+
+
+## 开发者指南 · HTTP 采集
+
+[官方原文](https://alibaba.github.io/loongsuite-go/zh/dev/http-capture.html) · 以官方为准
+
+官方这页讲什么：设计 HTTP 请求头和 Body 的采集：环境变量、属性命名、Body 采集条件、实现位置与测试计划。
+
+初学者容易卡在哪里：本指南没有讲解这项功能。它适合在读懂 hook 与 OTel 属性之后，作为“一个完整插件设计”来读。
+
+在本指南中接着读：Hook 与 linkname → OpenTelemetry 运行时：属性、事件和状态
+
+自问：读这页设计文档时，先找哪两部分最能帮助理解实现？
+
+参考解释：“实现位置”和“Hook 改动”：前者告诉你改哪些包，后者告诉你 hook 在哪一步取数据。
+
+
+## 黑客指南 · 概述
+
+[官方原文](https://alibaba.github.io/loongsuite-go/zh/hacking/overview.html) · 本指南详细展开
+
+官方这页讲什么：普通 `go build` 经历解析、类型检查、优化、生成代码与链接；使用工具后，在这些步骤之前增加“预处理”和“埋点”两个阶段。
+
+初学者容易卡在哪里：两个新阶段并不是替换编译器，而是在调用真实编译器之前准备和改写输入。
+
+在本指南中接着读：从零 4 · 编译时和运行时是两段时间 → 从 otel go build 到目标二进制 → 源码架构导航：从命令到 hook 的调用链
+
+自问：“预处理”和“埋点”分别产出什么？
+
+参考解释：预处理选出要用的规则并准备依赖；埋点按规则生成并注入代码，再交给真实编译器。
+
+
+## 黑客指南 · 预处理阶段
+
+[官方原文](https://alibaba.github.io/loongsuite-go/zh/hacking/preprocess.html) · 本指南详细展开
+
+官方这页讲什么：分析项目依赖并与规则匹配，准备规则需要的依赖，然后通过 `go build -toolexec otel` 进入埋点阶段。
+
+初学者容易卡在哪里：官方用一段话带过的“准备依赖”，实际要反复进行：加入 hook 代码会带进新包，新包又可能命中新规则。
+
+在本指南中接着读：Preprocess：为什么找两次规则，要准备三次？ → 为观察代码补依赖 → Go 编译器代理 → 实验 03：亲手包装一次 Go 编译
+
+自问：`-toolexec` 让 `go build` 做了什么不同的事？
+
+参考解释：调用编译器、链接器等工具时，先调用指定程序并把原命令交给它，由它决定改写输入后再执行真实工具。
+
+
+## 黑客指南 · 埋点阶段
+
+[官方原文](https://alibaba.github.io/loongsuite-go/zh/hacking/instrument.html) · 本指南详细展开
+
+官方这页讲什么：以 `(*Transport).RoundTrip` 为例：在原函数入口插入 tjump，跳到生成的 Trampoline，再由 `go:linkname` 接到开发者写的 hook。
+
+初学者容易卡在哪里：三层模型里，“谁生成、谁提供、谁连接”最容易混。先分清 RawFunc、TrampolineFunc、HookFunc 的来源，再看代码。
+
+在本指南中接着读：AST 插桩总流程 → 函数 AST 改写：在入口和返回处接上 hook → Trampoline 三层模型 → 跨包符号桥 → 实验 02 与 04：AST 改写与真实 hook
+
+自问：为什么 tjump 把 OnExit 放在 `else` 分支里的 `defer`？
+
+参考解释：`skip` 几乎总是 false，`else` 总会执行；用 `defer` 才能在原函数任何返回路径上运行 OnExit。
+
+
+## 黑客指南 · AST 优化
+
+[官方原文](https://alibaba.github.io/loongsuite-go/zh/hacking/optimize.html) · 本指南部分覆盖
+
+官方这页讲什么：缺少 OnEnter 或 OnExit、或不使用 SkipCall 时，改写 tjump 的条件和分支，让编译器的死代码消除去掉多余部分。
+
+初学者容易卡在哪里：优化依赖 if 骨架保持不变，所以修改 tjump 结构的改动都要重新验证性能和语义。
+
+在本指南中接着读：函数 AST 改写：在入口和返回处接上 hook → Trampoline 三层模型 → AST 与 DST：把源码变成可安全改写的树
+
+自问：没有 OnExit hook 时，为什么不直接删掉整个 `else` 块？
+
+参考解释：同一函数可能有多个 tjump，后面的嵌套在 `else` 块里；官方的做法是把 `defer` 换成空语句。
+
+
+## 黑客指南 · 调试
+
+[官方原文](https://alibaba.github.io/loongsuite-go/zh/hacking/debug.html) · 本指南部分覆盖
+
+官方这页讲什么：`otel set -debug` 构建未优化的二进制并保留临时文件，`-verbose` 输出详细过程；`.otel-build` 里保存注入代码、原文件备份和匹配到的规则。
+
+初学者容易卡在哪里：先确认问题在哪一层：规则没命中、代码没注入、hook 没执行，还是数据没导出。不同层看不同证据。
+
+在本指南中接着读：调试与验证：从“没 Span”定位到具体层 → 从 otel go build 到目标二进制：动手读日志 → 实验 04：普通与插桩输出对照
+
+自问：怀疑规则没有命中，先看 `.otel-build` 里的哪个文件？
+
+参考解释：`preprocess/matched_rules.json`，它记录预处理阶段匹配到的规则。
+
+
 入门来源：
 - [Go 官方：代码、包与模块的组织](https://go.dev/doc/code)
 - [Go 官方：管理依赖](https://go.dev/doc/modules/managing-dependencies)

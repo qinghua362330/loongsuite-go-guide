@@ -8,6 +8,7 @@ import { sourceMap, labRegistry, labResults } from '../dist/generated-data.js';
 import { zeroSteps } from '../dist/zero.js';
 import { sourceLessons } from '../dist/source-lessons.js';
 import { renderZeroPage, renderSourcePage, renderChapterBridge } from '../dist/beginner-ui.js';
+import { officialPages, renderOfficialPage, officialUrl, coverageLabels } from '../dist/official-docs.js';
 const sha='cac400935add57d8219122ba32857b8f55ac6eb1';
 const ids=new Set(chapters.map(c=>c.id));
 assert.equal(ids.size,chapters.length,'duplicate chapter id');
@@ -22,7 +23,7 @@ for(const c of chapters){
 }
 assert.equal(sourceMap.length,20);
 for(const s of sourceMap){assert.ok(s.url.includes(sha));assert.ok(s.snippet.length>0);assert.ok(s.line>0);}
-for(const name of ['app','chapters','visuals','resources','generated-data','zero','source-lessons','source-demos','course-demos','preprocess-demos','motion-map','dependency-lesson','motion-scene','lesson-demo','beginner-ui'])execFileSync(process.execPath,['--check',`dist/${name}.js`]);
+for(const name of ['app','chapters','visuals','resources','generated-data','zero','source-lessons','source-demos','course-demos','preprocess-demos','motion-map','dependency-lesson','motion-scene','lesson-demo','beginner-ui','official-docs'])execFileSync(process.execPath,['--check',`dist/${name}.js`]);
 for(const file of ['offline.html','guide.md','assets/labs.zip','chapter-template.md','guide-authoring-resources.md'])assert.ok(fs.statSync(`dist/${file}`).size>0,file);
 assert.ok(!fs.readFileSync('dist/offline.html','utf8').includes('src="./app.js"'),'offline page has module dependency');
 // The offline concatenation must also parse as one module (individual checks miss duplicate names).
@@ -41,6 +42,8 @@ for(const [i,s]of zeroSteps.entries()){
  assert.ok(renderZeroPage(String(i+1),helpers).includes(esc(s.goal)),`missing visible learning goal ${i+1}`);
 }
 for(const n of sourceMap){const l=sourceLessons[n.id];assert.ok(l,`missing source lesson ${n.id}`);assert.ok(l.steps.length>=3 && l.sourceNotes.length>=2 && l.terms.length>=3);for(const link of [...l.prerequisites,l.next])assert.ok(validRoute(link.href),`broken learning route ${link.href}`);const html=renderSourcePage(n,l,sourceMap,helpers);assert.ok(html.includes('class="raw-source"'),`missing source disclosure ${n.id}`);assert.ok(!html.includes('class="raw-source" open'),'raw source should not overwhelm the default reading');}
+for(const p of officialPages){assert.ok(coverageLabels[p.coverage],`${p.id}: unknown coverage`);assert.ok(p.read.length>=2,`${p.id}: needs reading path`);for(const [,href]of p.read)assert.ok(validRoute(href),`${p.id}: broken route ${href}`);assert.ok(p.path==='zh/'||/^zh\/(user|dev|hacking)\/[a-z_-]+\.html$/.test(p.path),`${p.id}: bad official path`);assert.ok(renderOfficialPage(p.id,helpers).includes(esc(officialUrl(p))),`${p.id}: missing official link`);}
+assert.equal(officialPages.length,20,'official sidebar has 20 pages');
 for(const c of chapters)assert.ok(renderChapterBridge(c,helpers).includes(esc(c.bridge.problem)));
 assert.ok(fs.readFileSync('dist/style.css','utf8').includes('[hidden]{display:none!important}'),'hidden controls may render');
 for(const [id,r]of Object.entries(labResults.labs))assert.equal(r.status,'passed',`${id}: unresolved lab status`);

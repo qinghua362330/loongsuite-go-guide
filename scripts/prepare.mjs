@@ -24,6 +24,7 @@ const {resources,lessonTemplate}=await import(path.join(dist,'resources.js')+'?'
 const {zeroSteps,zeroSources}=await import(path.join(dist,'zero.js')+'?'+Date.now());
 const {sourceLessons}=await import(path.join(dist,'source-lessons.js')+'?'+Date.now());
 const {lessonDemos}=await import(path.join(dist,'lesson-demo.js')+'?'+Date.now());
+const {officialGroups,officialSite,officialUrl,coverageLabels}=await import(path.join(dist,'official-docs.js')+'?'+Date.now());
 fs.writeFileSync(path.join(dist,'chapter-template.md'),lessonTemplate+'\n');
 fs.writeFileSync(path.join(dist,'guide-authoring-resources.md'),[
  '# 编写学习指南：skill、方法与模板\n\n核对日期：2026-10-27。选择围绕 LoongSuite Go 源码学习目标，未全局安装第三方 skill。\n',
@@ -34,6 +35,8 @@ const missing=[];if(fs.existsSync(upstream))for(const c of chapters)for(const w 
 if(missing.length)throw Error('Missing walkthrough files: '+missing.join(','));
 const md=['# LoongSuite Go：从原理到二开\n\n基于 v1.15.0 / cac400935add57d8219122ba32857b8f55ac6eb1。网页含交互图解；本文是便于离线检索的正文。\n'];
 for(const [i,s]of zeroSteps.entries()){md.push(`\n# 从零 ${i+1}：${s.title}\n\n## ${s.question}\n\n${s.paragraphs.join('\n\n')}\n\n${s.terms.map(t=>'- **'+t.term+'**：'+t.meaning).join('\n')}\n\n### ${s.before.label}\n\n`+'```'+(s.before.language||'go')+'\n'+s.before.code+'\n```\n\n'+`### ${s.after.label}\n\n`+'```'+(s.after.language||'go')+'\n'+s.after.code+'\n```\n\n'+s.caption+`\n\n自问：${s.check.question}\n\n参考解释：${s.check.answer}\n\n带走一句话：${s.takeaway}\n`);}
+md.push(`\n# 对照官方文档阅读\n\n顺序跟随 [LoongSuite Go 官方文档](${officialSite.base}zh/)。核对日期 ${officialSite.checked}。${officialSite.diffNote}\n`);
+for(const g of officialGroups)for(const p of g.pages)md.push(`\n## ${g.title} · ${p.title}\n\n[官方原文](${officialUrl(p)}) · ${coverageLabels[p.coverage][0]}\n\n官方这页讲什么：${p.says}\n\n初学者容易卡在哪里：${p.gap}\n\n在本指南中接着读：${p.read.map(([l])=>l).join(' → ')}\n\n自问：${p.question}\n\n参考解释：${p.answer}\n`);
 md.push('\n入门来源：\n'+zeroSources.map(s=>'- ['+s.title+']('+s.url+')').join('\n'));
 for(const c of chapters){md.push(`\n# ${c.title}\n\n${c.subtitle}\n\n建议时间：${c.minutes} 分钟\n\n## 学习目标\n${c.outcomes.map(x=>'- '+x).join('\n')}\n`);if(c.bridge)md.push(`\n## 为什么学这一章\n\n你已经知道：${c.bridge.known}\n\n遇到的问题：${c.bridge.problem}\n\n本章的办法：${c.bridge.idea}\n\n${c.bridge.terms.map(t=>'- **'+t.term+'**：'+t.meaning).join('\n')}\n\n${c.bridge.takeaway}\n`);for(const s of c.sections)md.push(`\n## ${s.title}\n\n${s.paragraphs.join('\n\n')}\n${s.code?'\n```'+s.language+'\n'+s.code+'\n```\n':''}${s.note?'\n说明：'+s.note+'\n':''}`);md.push('\n## 源码阅读\n\n'+c.walkthrough.map(w=>`- [${w.file}](${w.url})：${w.task}`).join('\n'));md.push(`\n\n## 练习：${c.lab.title}\n\n${c.lab.steps.map((s,i)=>`${i+1}. ${s}`).join('\n')}\n\n\`\`\`sh\n${c.lab.command}\n\`\`\`\n\n预期：${c.lab.expected}\n\n挑战：${c.lab.challenge}\n`);for(const q of c.quiz)md.push(`\n问题：${q.q}\n\n${q.options.map((x,i)=>`${i+1}. ${x}`).join('\n')}\n\n参考答案：${q.answer+1}。${q.explanation}\n`);}
 for(const n of sourceMap){const l=sourceLessons[n.id];md.push(`\n# 源码讲解：${l.title}\n\n${l.plain}\n\n为什么需要它：${l.why}\n\n## 本页名词\n\n${l.terms.map(t=>'- **'+t.term+'**：'+t.meaning).join('\n')}\n\n输入：${l.input}\n\n输出：${l.output}\n`);for(const step of l.steps)md.push(`\n## ${step.title}\n\n${step.explanation}\n`+(step.code?'\n```'+(step.language||'text')+'\n'+step.code+'\n```\n':''));md.push('\n## 对应源码\n\n'+l.sourceNotes.map(note=>'`'+note.code+'`：'+note.explanation).join('\n\n')+'\n\n[固定版本源码]('+n.url+')\n\n'+l.pitfalls.map(t=>'- '+t).join('\n')+`\n\n自问：${l.check.question}\n\n参考解释：${l.check.answer}\n`);}
@@ -43,7 +46,7 @@ for(const [kind,demos]of Object.entries(lessonDemos))for(const [id,demo]of Objec
  for(const sample of demo.cases){md.push(`\n### 情况：${sample.label}\n\n${sample.summary}\n`);for(const [i,frame]of sample.frames.entries())md.push(`\n#### 画面 ${i+1}：${frame.title}\n\n${frame.explain}\n\n为什么：${frame.why}\n\n${frame.code.label}\n\n`+'```'+frame.code.language+'\n'+frame.code.text+'\n```\n\n'+`现在得到：${frame.result}\n`);md.push('\n'+sample.verdict+'\n');}
 }
 fs.writeFileSync(path.join(dist,'guide.md'),md.join('\n'));
-const moduleFiles=['chapters.js','visuals.js','resources.js','generated-data.js','zero.js','source-lessons.js','source-demos.js','course-demos.js','preprocess-demos.js','motion-map.js','dependency-lesson.js','motion-scene.js','lesson-demo.js','beginner-ui.js','app.js'];
+const moduleFiles=['chapters.js','visuals.js','resources.js','generated-data.js','zero.js','source-lessons.js','source-demos.js','course-demos.js','preprocess-demos.js','motion-map.js','dependency-lesson.js','motion-scene.js','lesson-demo.js','beginner-ui.js','official-docs.js','app.js'];
 const scripts=moduleFiles.map(f=>fs.readFileSync(path.join(dist,f),'utf8').replace(/^import .*?;\n/gm,'').replace(/^export /gm,'')).join('\n');
 let html=fs.readFileSync(path.join(dist,'index.html'),'utf8');
 html=html.replace('<link rel="stylesheet" href="./style.css">',`<style>${fs.readFileSync(path.join(dist,'style.css'),'utf8').replace(/^@import[^;]+;\n/,'')}</style>`).replace('<script type="module" src="./app.js"></script>',`<script type="module">${scripts.replaceAll('</script>','<\\/script>')}</script>`);

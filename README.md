@@ -6,7 +6,9 @@
 
 > 源码讲解固定在 LoongSuite Go **v1.15.0**，提交 [`cac4009`](https://github.com/alibaba/loongsuite-go/tree/cac400935add57d8219122ba32857b8f55ac6eb1)。本指南不是上游官方文档，不能直接套用于任意新版本。
 
-[快速开始](#快速开始) · [学习路线](#学习路线) · [运行实验](#运行实验) · [修改指南](#修改指南) · [验证边界](#验证边界) · [下载发行包](https://github.com/qinghua362330/loongsuite-go-guide/releases)
+**在线阅读：<https://qinghua362330.github.io/loongsuite-go-guide/>**
+
+[快速开始](#快速开始) · [对照官方文档](#对照官方文档阅读) · [学习路线](#学习路线) · [运行实验](#运行实验) · [修改指南](#修改指南) · [验证边界](#验证边界) · [下载发行包](https://github.com/qinghua362330/loongsuite-go-guide/releases)
 
 ![补依赖实例：新增调用、构建错误与对应解释](docs/images/dependency-walkthrough.png)
 
@@ -34,6 +36,10 @@ go build 报错：找不到 observer 依赖
 
 ## 快速开始
 
+### 方式零：直接在线阅读
+
+打开 [GitHub Pages 站点](https://qinghua362330.github.io/loongsuite-go-guide/)，无需下载或安装。站点由 `.github/workflows/pages.yml` 在每次推送 `main` 后检查并发布 `dist/`。
+
 ### 方式一：下载后阅读
 
 到 [Releases](https://github.com/qinghua362330/loongsuite-go-guide/releases) 下载发行 ZIP，解压后打开 `dist/offline.html`。无需安装 Node.js、Go 或 LoongSuite。
@@ -53,6 +59,12 @@ python3 -m http.server 8767 --bind 127.0.0.1 --directory dist
 打开 [从零开始：第 1 步](http://127.0.0.1:8767/#/start/1)。也可直接阅读 [补依赖实例](http://127.0.0.1:8767/#/start/6)。服务仅监听本机，按 `Ctrl+C` 停止。
 
 网站直接使用 HTML、CSS 和 JavaScript，没有 npm 依赖，无需执行 `npm install`。学习进度与笔记保存在当前浏览器，可通过页面的“导出笔记”备份。
+
+## 对照官方文档阅读
+
+[LoongSuite Go 官方文档](https://alibaba.github.io/loongsuite-go/zh/) 说明怎样使用、怎样开发插件。本指南的“对照官方文档”页（[在线](https://qinghua362330.github.io/loongsuite-go-guide/#/official)）按官方侧栏的 20 页逐页给出：官方这页讲什么、初学者容易卡在哪里、在本指南中接着读哪些实例与源码，以及一道自测题。每页标明本指南是详细展开、部分覆盖，还是以官方为准。
+
+核对日（2026-10-29）官方文档 `main` 与固定版本 v1.15.0 的 `docs/` 只差支持库表中一个链接写法。
 
 ## 学习路线
 
@@ -137,6 +149,7 @@ node scripts/check.mjs
 │   ├── zero.js                   # 七步入门内容
 │   ├── chapters.js               # 十三章课程与测验
 │   ├── source-lessons.js         # 二十个源码节点讲解
+│   ├── official-docs.js          # 对照官方文档的 20 页阅读路径
 │   ├── *-demos.js                # 实例、逐段代码和因果说明
 │   ├── motion-map.js             # 每一步的图解对象和动作
 │   ├── motion-scene.js           # 通用 SVG 图解
