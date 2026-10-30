@@ -139,6 +139,20 @@ node scripts/check.mjs
 
 生成使用已提交的 `content/source-snapshot.json`，**不需要下载完整上游源码或准备 research 缓存**。如要修改固定版本，请同时核对摘录、源码链接、章节解释和实验，不能只替换版本字符串。
 
+### 导出给官方文档的动画
+
+七段入门图解可以生成中英文独立 SVG，供 VitePress 用普通 Markdown 图片嵌入。SVG 不加载脚本或外部资源；每步停留 5.5 秒，自动循环。减少动态效果和打印模式固定显示最后一步，完整过程同时写在页面正文和图片描述中。
+
+```bash
+# 从本仓库运行，输出目录改成你的上游检出位置
+npm run export:official-svg -- ../upstream/loongsuite-go/docs/public/beginner
+
+# 只检查已生成的 14 张图是否与当前导出代码一致，不改文件
+npm run export:official-svg -- ../upstream/loongsuite-go/docs/public/beginner --check
+```
+
+布局和阶段来自 `dist/motion-map.js`，官方页适配和中英文文字在 `scripts/export-official-svg.mjs`。SVG 版自动播放；逐步操作、随滚动变化和练习反馈仍在本指南中。
+
 ## 项目结构
 
 ```text
