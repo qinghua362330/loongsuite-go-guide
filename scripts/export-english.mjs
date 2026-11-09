@@ -30,6 +30,6 @@ for(const[kind,demos]of Object.entries(lessonDemos))for(const[id,demo]of Object.
 }
 md.push('\n# Runnable labs\n');for(const lab of labRegistry)md.push(`\n## ${lab.title}\n\n${lab.goal}\n${fence(lab.command,'sh')}\nExpected: ${lab.expected}\n\nChallenge: ${lab.challenge}\n\nExplanation: ${lab.answer}\n`);
 fs.writeFileSync('dist/guide.en.md',md.join('\n'));
-fs.writeFileSync('dist/chapter-template.en.md',lessonTemplate+'\n');
+fs.writeFileSync('dist/chapter-template.en.md',lessonTemplate.trimEnd()+'\n');
 fs.writeFileSync('dist/guide-authoring-resources.en.md','# Guide authoring resources\n\n'+resources.map(r=>`## ${r.name}\n\n[Project](${r.url}) · [Documentation](${r.docs})\n\nFit: ${r.fit}\n\nLimits: ${r.limit}\n\nApproach adopted: ${r.adopt}\n`).join('\n'));
 console.log(JSON.stringify({englishGuide:'generated',introductorySteps:zeroSteps.length,chapters:chapters.length,sourceLessons:sourceMap.length,labs:labRegistry.length}));

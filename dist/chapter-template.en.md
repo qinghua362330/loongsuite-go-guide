@@ -31,4 +31,3 @@ The reader can explain the cause, reproduce the experiment, modify the code, and
 
 ## Sources and limitations
 Provide upstream documentation and code evidence; distinguish models from examples actually run.
-
