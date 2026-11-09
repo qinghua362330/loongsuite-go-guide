@@ -221,3 +221,4 @@ html[lang="en"] .story-why b,html[lang="en"] .story-result b,html[lang="en"] .ch
 @media(max-width:700px){.top-actions .version{display:none}.top-actions .icon-btn{font-size:11px}html[lang="en"] .topbar-left b{max-width:clamp(4rem,20vw,7rem)}}
 /* Long commit IDs and module paths must wrap in narrative text on narrow screens. */
 .page{overflow-wrap:anywhere}
+.zero-nav a>span:first-child{flex-shrink:0;white-space:nowrap}
