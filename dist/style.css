@@ -203,3 +203,21 @@ details>summary:focus-visible{outline:3px solid #92ad42;outline-offset:5px}
 @media(max-width:700px){.dependency-scene{padding-top:6px}.dependency-status{min-height:20px;margin-bottom:6px}.dependency-files pre{height:75px;padding:4px 6px}.dependency-library{display:flex;align-items:center;min-height:38px}.dependency-library h4{border:0;padding:5px 7px;flex:0 0 40%}.dependency-library pre{display:none}.dependency-library>span{font-size:10px;min-height:0;padding:4px}.dependency-config{min-height:32px;padding:4px 7px;margin-bottom:6px}.dependency-terminal{min-height:66px;padding:6px 8px}.lesson-demo-dependency .story-picture figcaption{font-size:11px;padding:5px 7px}.dependency-arrow-note{font-size:21px}}
 @media(max-height:650px){.lesson-demo-dependency .story-picture{position:static}}
 @media(prefers-reduced-motion:reduce){.dependency-new.added{animation:none}}
+
+/* The language control shares the existing reading toolbar and keyboard focus styles. */
+.language-switch{display:inline-flex;align-items:center;gap:2px;padding:3px;border:1px solid var(--line);border-radius:var(--radius);background:var(--surface);flex-shrink:0}
+.language-switch button{border:0;border-radius:4px;background:transparent;padding:4px 8px;font-size:12px;line-height:1.5;white-space:nowrap}
+.language-switch button[aria-pressed="true"]{background:var(--green);color:var(--surface)}
+html[lang="en"] .story-picture text{letter-spacing:0}
+html[lang="en"] .motion-note{font-size:12px}
+html[lang="en"] .topbar{gap:var(--space)}
+html[lang="en"] .topbar-left{min-width:0}
+html[lang="en"] .topbar-left b{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+@media(max-width:700px){.language-switch button{padding:4px 6px}.top-actions{gap:6px}html[lang="en"] .topbar-left>span{display:none}html[lang="en"] .topbar-left b{max-width:110px}}
+@media print{.language-switch{display:none!important}}
+
+.community-scope{max-width:980px;margin:40px auto 0;padding:16px 0;border-top:1px solid var(--line);font-size:12px;line-height:1.8;color:var(--muted)}
+html[lang="en"] .story-why b,html[lang="en"] .story-result b,html[lang="en"] .chapter-bridge b,html[lang="en"] .zero-goal b{margin-right:.3em}
+@media(max-width:700px){.top-actions .version{display:none}.top-actions .icon-btn{font-size:11px}html[lang="en"] .topbar-left b{max-width:clamp(4rem,20vw,7rem)}}
+/* Long commit IDs and module paths must wrap in narrative text on narrow screens. */
+.page{overflow-wrap:anywhere}

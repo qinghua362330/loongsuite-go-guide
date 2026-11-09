@@ -2,7 +2,7 @@
   "name": "loongsuite-go-guide",
   "version": "0.1.0",
   "private": true,
-  "description": "面向初学者的 LoongSuite Go 中文源码学习指南、随文动画与可运行实验",
+  "description": "面向初学者的 LoongSuite Go 中英双语源码学习指南、随文动画与可运行实验",
   "type": "module",
   "license": "Apache-2.0",
   "repository": {
@@ -11,8 +11,8 @@
   },
   "engines": { "node": ">=22" },
   "scripts": {
-    "build": "node scripts/prepare.mjs && python3 scripts/package-labs.py",
-    "check": "node scripts/check.mjs",
+    "build": "node scripts/prepare.mjs && node scripts/export-english.mjs && python3 scripts/package-labs.py",
+    "check": "node scripts/check.mjs && node scripts/check-i18n.mjs",
     "export:official-svg": "node scripts/export-official-svg.mjs",
     "serve": "python3 -m http.server 8767 --bind 127.0.0.1 --directory dist",
     "labs": "sh labs/run-all.sh"

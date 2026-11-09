@@ -1,4 +1,5 @@
-export const sourceMap = [
+import { localizeData } from './i18n.js';
+export const sourceMap = localizeData([
   {
     "id": "go-mod",
     "title": "版本与多 module",
@@ -239,8 +240,8 @@ export const sourceMap = [
     "url": "https://github.com/alibaba/loongsuite-go/blob/cac400935add57d8219122ba32857b8f55ac6eb1/docs/user/compatibility.md",
     "snippet": "   1  # Compatibility\n   2  \n   3  `loongsuite-go` ensures compatibility with the current supported\n   4  versions of\n   5  the [Go language](https://golang.org/doc/devel/release#policy):\n   6  \n   7  > Each major Go release is supported until there are two newer major releases.\n   8  > For example, Go 1.5 was supported until the Go 1.7 release, and Go 1.6 was supported until the Go 1.8 release.\n   9  \n  10  For versions of Go that are no longer supported upstream, `loongsuite-go` will\n  11  stop ensuring compatibility with these versions in the following manner:\n  12  \n  13  - A minor release of `loongsuite-go` will be made to add support for the new\n  14  supported release of Go.\n  15  - The following minor release of `loongsuite-go` will remove compatibility\n  16  testing for the oldest (now archived upstream) version of Go. This, and\n  17  future, releases of `loongsuite-go` may include features only supported by\n  18  the currently supported versions of Go.\n  19  \n  20  > [!IMPORTANT]\n  21  > **Minimum Go version: 1.25.** Since OpenTelemetry v1.42.0 the OTel modules\n  22  > declare `go 1.25.0`, and `loongsuite-go` pins OTel v1.45.0. Because the tool\n  23  > injects those modules into the application it instruments, both the tool and\n  24  > the instrumented application require Go 1.25 or newer. A Go 1.24 build only\n  25  > keeps working because the default `GOTOOLCHAIN=auto` silently downloads a\n  26  > 1.25 toolchain; with `GOTOOLCHAIN=local` it fails.\n  27  \n  28  This project is tested on the following systems.\n  29  \n  30  | OS       | Go Version | Architecture |\n  31  | -------- | ---------- | ------------ |"
   }
-];
-export const labResults = {
+], 'generated');
+export const labResults = localizeData({
   "upstream": {
     "tag": "v1.15.0",
     "sha": "cac400935add57d8219122ba32857b8f55ac6eb1",
@@ -335,8 +336,8 @@ export const labResults = {
   },
   "scope": "本地教学验证，不代表全部业务路径验收。",
   "verified_at": "2026-10-27"
-};
-export const labRegistry = [
+}, 'generated');
+export const labRegistry = localizeData([
   {
     "id": "00-start",
     "title": "从普通函数到手动观察",
@@ -414,4 +415,4 @@ export const labRegistry = [
     "status": "06-propagation: passed",
     "output": "06-propagation [passed]\nW3C, B3 multi, B3 single and conflict matrix\nB3 last overrides W3C\nsingle B3 wins over multi\nmulti inject preserves old b3\nclear old B3 then outgoing context is adopted\nevery case asserts both TraceID and SpanID, plus IsRemote\nstale single header and new multi header share TraceID but point to different parent SpanIDs"
   }
-];
+], 'generated');

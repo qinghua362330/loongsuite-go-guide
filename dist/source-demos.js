@@ -1,5 +1,6 @@
+import { localizeData } from './i18n.js';
 // 逐帧教学模拟；不是浏览器执行 Go 的输出。
-export const sourceDemos = {
+export const sourceDemos = localizeData({
   "go-mod": {
     "title": "让一个小项目找到它需要的代码",
     "scenario": "业务项目 example.com/live 有 go.mod；插桩工具要额外使用 hook 包。",
@@ -2976,4 +2977,4 @@ export const sourceDemos = {
       "explanation": "匹配会先检查规则条件。"
     }
   }
-};
+}, 'sourceDemos');

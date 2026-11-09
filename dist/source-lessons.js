@@ -1,5 +1,6 @@
+import { localizeData } from './i18n.js';
 // 固定上游实现的初学者讲解层；不是对源码逐行直译。
-export const sourceLessons = {
+export const sourceLessons = localizeData({
   "go-mod": {
     "title": "先看懂 go.mod：项目的地址与依赖清单",
     "plain": "你的 业务项目 可以只有一份 go.mod。下面的多份 go.mod 属于另一个仓库——LoongSuite 自己的源码，不是要求你给 业务项目 新建这些文件。先看清是谁的文件，再读模块边界。",
@@ -1684,4 +1685,4 @@ export const sourceLessons = {
       "href": "#/source/go-mod"
     }
   }
-};
+}, 'sourceLessons');

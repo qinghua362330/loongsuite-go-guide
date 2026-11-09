@@ -3,27 +3,28 @@ import { zeroDemos, chapterDemos } from './course-demos.js';
 import { focusDemos } from './preprocess-demos.js';
 import { getMotionMap, renderMotionScene } from './motion-scene.js';
 import { renderDependencyExercise, bindDependencyExercise } from './dependency-lesson.js';
+import { localizeData, t } from './i18n.js';
 
 export const lessonDemos={source:{...sourceDemos,...focusDemos},zero:zeroDemos,chapter:chapterDemos};
 const demoEsc=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 
 export function renderDemoFrame(demo,state) {
   const frame=demo.cases[state.caseIndex].frames[state.frameIndex],marks=new Set(frame.code.highlight||[]);
-  return `<p class="story-explain">${demoEsc(frame.explain)}</p><div class="story-code"><div>${demoEsc(frame.code.label)}</div><pre tabindex="0"><code>${frame.code.text.split('\n').map((line,i)=>`<span class="story-code-line ${marks.has(i+1)?'changed':''}"><span class="story-line-no" aria-hidden="true">${i+1}</span>${demoEsc(line)||' '}</span>`).join('')}</code></pre></div><p class="story-why"><b>为什么：</b>${demoEsc(frame.why)}</p><p class="story-result"><b>所以：</b>${demoEsc(frame.result)}</p>`;
+  return `<p class="story-explain">${demoEsc(frame.explain)}</p><div class="story-code"><div>${demoEsc(frame.code.label)}</div><pre tabindex="0"><code>${frame.code.text.split('\n').map((line,i)=>`<span class="story-code-line ${marks.has(i+1)?'changed':''}"><span class="story-line-no" aria-hidden="true">${i+1}</span>${demoEsc(line)||' '}</span>`).join('')}</code></pre></div><p class="story-why"><b>${t('为什么：','Why:')}</b>${demoEsc(frame.why)}</p><p class="story-result"><b>${t('所以：','Result:')}</b>${demoEsc(frame.result)}</p>`;
 }
 
 function storyBody(kind,id,demo,caseIndex) {
   const sample=demo.cases[caseIndex],map=getMotionMap(kind,id,caseIndex,0);
   // Reserve the tallest caption so changing scenes cannot move the reading line.
   const captionReserve=sample.frames.map((_,i)=>`<span class="story-caption-reserve" aria-hidden="true">${demoEsc(getMotionMap(kind,id,caseIndex,i).current.note)}</span>`).join('');
-  return `<div class="story-layout"><figure class="story-picture"><div class="story-picture-label"><span class="story-live-symbol" aria-hidden="true">●</span>跟着例子看变化</div><div data-motion-scene>${renderMotionScene(kind,id,caseIndex,0)}</div><figcaption><span data-motion-caption>${demoEsc(map.current.note)}</span>${captionReserve}</figcaption>${kind==='zero'&&id==='deps'?'':'<p class="story-legend">实线框：已接入　虚线框：尚未接入<br>移动的小块：本步的代码、上下文或动作正在交接</p>'}<p class="story-follow">向下阅读，图会跟随段落变化。也可点击段落标题。</p></figure><div class="story-paragraphs">${sample.frames.map((frame,i)=>`<section class="story-step ${i===0?'current':''}" data-story-step="${i}"><h3><button type="button" data-story-select="${i}" ${i===0?'aria-current="step"':''}><span>${String(i+1).padStart(2,'0')}</span>${demoEsc(frame.title)}</button></h3>${renderDemoFrame(demo,{caseIndex,frameIndex:i})}</section>`).join('')}</div></div><p class="story-verdict">${demoEsc(sample.verdict)}</p>`;
+  return `<div class="story-layout"><figure class="story-picture"><div class="story-picture-label"><span class="story-live-symbol" aria-hidden="true">●</span>${t('跟着例子看变化','Watch the example change')}</div><div data-motion-scene>${renderMotionScene(kind,id,caseIndex,0)}</div><figcaption><span data-motion-caption>${demoEsc(map.current.note)}</span>${captionReserve}</figcaption>${kind==='zero'&&id==='deps'?'':`<p class="story-legend">${t('实线框：已接入　虚线框：尚未接入','Solid border: connected　Dashed border: not connected')}<br>${t('移动的小块：本步的代码、上下文或动作正在交接','Moving block: this step is handing off code, context, or an action')}</p>`}<p class="story-follow">${t('向下阅读，图会跟随段落变化。也可点击段落标题。','Read on; the diagram follows the story. You can also click a step heading.')}</p></figure><div class="story-paragraphs">${sample.frames.map((frame,i)=>`<section class="story-step ${i===0?'current':''}" data-story-step="${i}"><h3><button type="button" data-story-select="${i}" ${i===0?'aria-current="step"':''}><span>${String(i+1).padStart(2,'0')}</span>${demoEsc(frame.title)}</button></h3>${renderDemoFrame(demo,{caseIndex,frameIndex:i})}</section>`).join('')}</div></div><p class="story-verdict">${demoEsc(sample.verdict)}</p>`;
 }
 
 export function renderLessonDemo(kind,id) {
-  const demo=lessonDemos[kind]?.[id];if(!demo)return '';
+  const demo=localizeData(lessonDemos[kind]?.[id],'official');if(!demo)return '';
   const uid=`lesson-demo-${kind}-${id}`;
   const dependencyLesson=kind==='zero'&&id==='deps';
-  return `<section class="lesson-demo ${dependencyLesson?'lesson-demo-dependency':''}" id="${uid}" data-lesson-demo="${demoEsc(kind+':'+id)}" aria-labelledby="${uid}-title"><header class="story-header"><div class="eyebrow">一个实例，一边看图，一边讲清楚</div><h2 id="${uid}-title">${demoEsc(demo.title)}</h2><p>${demoEsc(demo.scenario.replace('先选“完整三轮”，每次点下一步，关注黄色标出的新增内容。','下面一边读，一边看包和规则怎样沿箭头交接。'))}</p></header><details class="story-vocabulary" ${kind==='zero'?'':'open'}><summary>${kind==='zero'?'遇到不认识的词，再展开这里':'先认识例子里的几个东西'}</summary><dl>${demo.terms.map(t=>`<div><dt>${demoEsc(t.term)}</dt><dd>${demoEsc(t.meaning)}</dd></div>`).join('')}</dl></details>${demo.cases.length>1?`<div class="story-cases" role="group" aria-label="对比另一种情况">${demo.cases.map((c,i)=>`<button type="button" data-story-case="${i}" aria-pressed="${i===0}">${demoEsc(c.label)}</button>`).join('')}</div>`:''}<div data-story-body>${storyBody(kind,id,demo,0)}</div>${dependencyLesson?renderDependencyExercise():''}<fieldset class="story-question"><legend>${demoEsc(demo.question.prompt)}</legend>${demo.question.options.map((o,i)=>`<label><input type="radio" name="${uid}-answer" value="${i}" data-story-answer>${demoEsc(o)}</label>`).join('')}<p data-story-feedback hidden role="status"></p></fieldset><p class="story-scope">${demoEsc(demo.scope)} 图中使用教学模拟，网页不执行 Go。</p></section>`;
+  return `<section class="lesson-demo ${dependencyLesson?'lesson-demo-dependency':''}" id="${uid}" data-lesson-demo="${demoEsc(kind+':'+id)}" aria-labelledby="${uid}-title"><header class="story-header"><div class="eyebrow">${t('一个实例，一边看图，一边讲清楚','One example, explained with a diagram')}</div><h2 id="${uid}-title">${demoEsc(demo.title)}</h2><p>${demoEsc(demo.scenario.replace(t('先选“完整三轮”，每次点下一步，关注黄色标出的新增内容。','Choose \"All three rounds,\" advance one step at a time, and watch the yellow additions.'),t('下面一边读，一边看包和规则怎样沿箭头交接。','Read along as packages and rules hand off along the arrows.')))}</p></header><details class="story-vocabulary" ${kind==='zero'?'':'open'}><summary>${kind==='zero'?t('遇到不认识的词，再展开这里','Expand this if a term is unfamiliar'):t('先认识例子里的几个东西','Meet the pieces in this example first')}</summary><dl>${demo.terms.map(t=>`<div><dt>${demoEsc(t.term)}</dt><dd>${demoEsc(t.meaning)}</dd></div>`).join('')}</dl></details>${demo.cases.length>1?`<div class="story-cases" role="group" aria-label="${t('对比另一种情况','Compare another case')}">${demo.cases.map((c,i)=>`<button type="button" data-story-case="${i}" aria-pressed="${i===0}">${demoEsc(c.label)}</button>`).join('')}</div>`:''}<div data-story-body>${storyBody(kind,id,demo,0)}</div>${dependencyLesson?renderDependencyExercise():''}<fieldset class="story-question"><legend>${demoEsc(demo.question.prompt)}</legend>${demo.question.options.map((o,i)=>`<label><input type="radio" name="${uid}-answer" value="${i}" data-story-answer>${demoEsc(o)}</label>`).join('')}<p data-story-feedback hidden role="status"></p></fieldset><p class="story-scope">${demoEsc(demo.scope)} ${t('图中使用教学模拟，网页不执行 Go。','The diagram is a teaching model; the page does not execute Go.')}</p></section>`;
 }
 
 // Choose the paragraph at the reading line, using all positions in either direction.
@@ -39,7 +40,7 @@ export function storyFrameAtReadingLine(tops,readingTop) {
 export function bindLessonDemos(root) {
   const cleanups=[];
   root.querySelectorAll('[data-lesson-demo]').forEach(element=>{
-    const [kind,id]=element.dataset.lessonDemo.split(':'),demo=lessonDemos[kind]?.[id];if(!demo)return;
+    const [kind,id]=element.dataset.lessonDemo.split(':'),demo=localizeData(lessonDemos[kind]?.[id],'official');if(!demo)return;
     let caseIndex=0,frameIndex=0,pendingFrame=0,disposed=false;
     let resizeObserver=null;
     const select=(index,replay=false)=>{
@@ -93,7 +94,7 @@ export function bindLessonDemos(root) {
     const change=event=>{
       if(!event.target.matches('[data-story-answer]'))return;
       const answer=Number(event.target.value),feedback=element.querySelector('[data-story-feedback]');
-      feedback.hidden=false;feedback.textContent=`${answer===demo.question.answer?'✓ 判断正确。':'这里还差一步。'} ${demo.question.feedback?.[answer]||demo.question.explanation}`;
+      feedback.hidden=false;feedback.textContent=`${answer===demo.question.answer?t('✓ 判断正确。','✓ Correct.'):t('这里还差一步。','One step is still missing.')} ${demo.question.feedback?.[answer]||demo.question.explanation}`;
     };
     element.addEventListener('click',click);element.addEventListener('change',change);watchLayout();
     cleanups.push(bindDependencyExercise(element));

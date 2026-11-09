@@ -2,11 +2,13 @@
 
 从一个普通 Go 函数开始，逐步读懂 **LoongSuite Go 如何在构建时插入观察代码**，最终能阅读规则、修改 hook，并验证自己的改造。
 
-这是一份独立编写的中文学习指南，包含随段落变化的动画、源码阅读地图、即时反馈练习和可以在本地运行的 Go 实验。面向第一次接触 Go 插桩、OpenTelemetry 或编译工具的读者。
+这是一份独立编写的中英双语学习指南，包含随段落变化的动画、源码阅读地图、即时反馈练习和可以在本地运行的 Go 实验。面向第一次接触 Go 插桩、OpenTelemetry 或编译工具的读者。
 
 > 源码讲解固定在 LoongSuite Go **v1.15.0**，提交 [`cac4009`](https://github.com/alibaba/loongsuite-go/tree/cac400935add57d8219122ba32857b8f55ac6eb1)。本指南不是上游官方文档，不能直接套用于任意新版本。
 
-**在线阅读：<https://qinghua362330.github.io/loongsuite-go-guide/>**
+**在线阅读：[中文](https://qinghua362330.github.io/loongsuite-go-guide/?lang=zh) · [English](https://qinghua362330.github.io/loongsuite-go-guide/?lang=en)**
+
+[English README](README.en.md)。页头可切换语言，保留当前课程位置和已有学习记录。代码原文、可执行示例与实验输出保留原始文本。
 
 [快速开始](#快速开始) · [对照官方文档](#对照官方文档阅读) · [学习路线](#学习路线) · [运行实验](#运行实验) · [修改指南](#修改指南) · [验证边界](#验证边界) · [下载发行包](https://github.com/qinghua362330/loongsuite-go-guide/releases)
 

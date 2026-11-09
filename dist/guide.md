@@ -591,7 +591,7 @@ A、01、02、03 是便于阅读的教学标识，不是合法的 OTel ID 编码
 
 [官方原文](https://alibaba.github.io/loongsuite-go/zh/hacking/debug.html) · 本指南部分覆盖
 
-官方这页讲什么：`otel set -debug` 构建未优化的二进制并保留临时文件，`-verbose` 输出详细过程；`.otel-build` 里保存注入代码、原文件备份和匹配到的规则。
+官方这页讲什么：`otel set -debug` 构建未优化的二进制并保留临时文件，`-verbose` 输出详细过程；`.otel-build` 里保存注入代码、原文件备份和匹配到的规则。官方目录树中的匹配结果文件名与源码不一致，见下方自测。
 
 初学者容易卡在哪里：先确认问题在哪一层：规则没命中、代码没注入、hook 没执行，还是数据没导出。不同层看不同证据。
 
@@ -599,7 +599,7 @@ A、01、02、03 是便于阅读的教学标识，不是合法的 OTel ID 编码
 
 自问：怀疑规则没有命中，先看 `.otel-build` 里的哪个文件？
 
-参考解释：`preprocess/matched_rules.json`，它记录预处理阶段匹配到的规则。
+参考解释：`.otel-build/matched.json`。注意：官方页面目录树写的是 `preprocess/matched_rules.json`，但 v1.15.0 与当前 `main` 源码（`tool/util/shared.go` 的 `GetMatchedRuleFile`）实际读写的是 `matched.json`，实验 04 的真实运行也在这里找到了自定义规则。
 
 
 入门来源：

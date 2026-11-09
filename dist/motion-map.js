@@ -1,5 +1,6 @@
+import { localizeData } from './i18n.js';
 // Each map names the objects in the corresponding article example.
-export const motionMaps = {
+export const motionMaps = localizeData({
   "source": {
     "go-mod": {
       "mode": "modules",
@@ -4187,4 +4188,4 @@ export const motionMaps = {
       ]
     }
   }
-};
+}, 'motionMaps');

@@ -1,5 +1,6 @@
+import { localizeData } from './i18n.js';
 // 每篇文章使用具体实例；片段和 ID 均按各场景标注。
-export const zeroDemos = {
+export const zeroDemos = localizeData({
   "observe": {
     "title": "观察 FindRoom(42)",
     "scenario": "直播请求要查 42 号房间；返回值告诉我们“查到了什么”，却没有告诉我们“花了多久”。",
@@ -1186,9 +1187,9 @@ export const zeroDemos = {
       ]
     }
   }
-};
+}, 'courseDemos');
 
-export const chapterDemos = {
+export const chapterDemos = localizeData({
   "orientation": {
     "title": "观察 FindRoom(42)",
     "scenario": "直播请求要查 42 号房间；返回值告诉我们“查到了什么”，却没有告诉我们“花了多久”。",
@@ -3355,4 +3356,4 @@ export const chapterDemos = {
       "explanation": "构建成功不证明运行兼容；同 TraceID 也不证明 parent 正确。"
     }
   }
-};
+}, 'courseDemos');

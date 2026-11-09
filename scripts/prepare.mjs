@@ -17,7 +17,7 @@ if(Object.keys(results.labs).some(k=>k.startsWith('05-otel')))labRegistry.push({
 if(results.labs['06-propagation'])labRegistry.push({id:'06-propagation',title:'亲自提取 W3C、B3 单头与多头',goal:'使用真实 OTel propagator，固定合法 ID，逐项断言冲突输入和旧单头残留。这里模拟载体，没有连接真实网关。',command:'cd labs/06-propagation\ngo run .',expected:'B3 最后覆盖 W3C；有效 B3 单头优先多头；旧单头未清理时 parent 仍旧，清理后连接新的出站 SpanID。相同 TraceID 不保证父节点正确。',challenge:'把 B3 移到 W3C 前，再让两种格式提供不同 TraceID；比较胜出者。',answer:'组合传播器按顺序更新 context。B3 的注入编码只控制写出格式，不会禁止读取单头，也不会自动删除旧头。实验对每一行同时检查 TraceID、SpanID 和远程标志。'});
 for(const l of labRegistry)l.status=status(l.id)||'尚未执行';
 for(const l of labRegistry){const records=Object.entries(results.labs).filter(([k])=>k.startsWith(l.id));l.output=records.map(([name,r])=>`${name} [${r.status}]\n${r.evidence.join('\n')}`).join('\n\n');}
-fs.writeFileSync(path.join(dist,'generated-data.js'),`export const sourceMap = ${JSON.stringify(sourceMap,null,2)};\nexport const labResults = ${JSON.stringify(results,null,2)};\nexport const labRegistry = ${JSON.stringify(labRegistry,null,2)};\n`);
+fs.writeFileSync(path.join(dist,'generated-data.js'),`import { localizeData } from './i18n.js';\nexport const sourceMap = localizeData(${JSON.stringify(sourceMap,null,2)}, 'generated');\nexport const labResults = localizeData(${JSON.stringify(results,null,2)}, 'generated');\nexport const labRegistry = localizeData(${JSON.stringify(labRegistry,null,2)}, 'generated');\n`);
 fs.writeFileSync(path.join(dist,'lab-results.json'),JSON.stringify(results,null,2));
 const {chapters}=await import(path.join(dist,'chapters.js')+'?'+Date.now());
 const {resources,lessonTemplate}=await import(path.join(dist,'resources.js')+'?'+Date.now());
@@ -46,8 +46,24 @@ for(const [kind,demos]of Object.entries(lessonDemos))for(const [id,demo]of Objec
  for(const sample of demo.cases){md.push(`\n### 情况：${sample.label}\n\n${sample.summary}\n`);for(const [i,frame]of sample.frames.entries())md.push(`\n#### 画面 ${i+1}：${frame.title}\n\n${frame.explain}\n\n为什么：${frame.why}\n\n${frame.code.label}\n\n`+'```'+frame.code.language+'\n'+frame.code.text+'\n```\n\n'+`现在得到：${frame.result}\n`);md.push('\n'+sample.verdict+'\n');}
 }
 fs.writeFileSync(path.join(dist,'guide.md'),md.join('\n'));
-const moduleFiles=['chapters.js','visuals.js','resources.js','generated-data.js','zero.js','source-lessons.js','source-demos.js','course-demos.js','preprocess-demos.js','motion-map.js','dependency-lesson.js','motion-scene.js','lesson-demo.js','beginner-ui.js','official-docs.js','app.js'];
-const scripts=moduleFiles.map(f=>fs.readFileSync(path.join(dist,f),'utf8').replace(/^import .*?;\n/gm,'').replace(/^export /gm,'')).join('\n');
+const moduleFiles=['locales/en/basic.js','locales/en/source.js','locales/en/demos.js','locales/en/maps.js','locales/en/official.js','locales/en/labs.js','i18n.js','chapters.js','visuals.js','resources.js','generated-data.js','zero.js','source-lessons.js','source-demos.js','course-demos.js','preprocess-demos.js','motion-map.js','dependency-lesson.js','motion-scene.js','lesson-demo.js','beginner-ui.js','official-docs.js','app.js'];
+// Keep each module's lexical scope and named import aliases in the single-file build.
+// Flattening declarations can parse successfully yet fail at runtime when an alias
+// is initialized after an earlier module uses it.
+const offlineModulesSeen=new Set();
+const scripts='const offlineModules=Object.create(null);\n'+moduleFiles.map(file=>{
+ let body=fs.readFileSync(path.join(dist,file),'utf8');
+ const exports=[...body.matchAll(/^export\s+(?:const|function)\s+([A-Za-z_$][\w$]*)/gm)].map(m=>m[1]);
+ body=body.replace(/^import\s+\{([^}]+)\}\s+from\s+['"]([^'"]+)['"];?[ \t]*\n?/gm,(_,names,relative)=>{
+  const dependency=path.posix.normalize(path.posix.join(path.posix.dirname(file),relative));
+  if(!offlineModulesSeen.has(dependency))throw Error('Offline module order: '+file+' needs '+dependency);
+  const bindings=names.split(',').map(name=>name.trim()).filter(Boolean).map(name=>name.replace(/\s+as\s+/,': ')).join(', ');
+  return `const { ${bindings} }=offlineModules[${JSON.stringify(dependency)}];\n`;
+ }).replace(/^export /gm,'');
+ if(/^import\s/m.test(body))throw Error('Unsupported offline import in '+file);
+ offlineModulesSeen.add(file);
+ return `offlineModules[${JSON.stringify(file)}]=(()=>{\n${body}\nreturn {${exports.join(',')}};\n})();`;
+}).join('\n');
 let html=fs.readFileSync(path.join(dist,'index.html'),'utf8');
 html=html.replace('<link rel="stylesheet" href="./style.css">',`<style>${fs.readFileSync(path.join(dist,'style.css'),'utf8').replace(/^@import[^;]+;\n/,'')}</style>`).replace('<script type="module" src="./app.js"></script>',`<script type="module">${scripts.replaceAll('</script>','<\\/script>')}</script>`);
 fs.writeFileSync(path.join(dist,'offline.html'),html);

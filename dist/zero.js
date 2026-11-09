@@ -1,5 +1,6 @@
+import { localizeData } from './i18n.js';
 // 入门层只引入当前步骤需要的概念；源码层见 source-lessons.js。
-export const zeroSteps = [
+export const zeroSteps = localizeData([
   {
     id:'observe', title:'先有一个普通函数', goal:'看见“有结果”和“知道过程”是两件事。', beforeYouRead:'FindRoom(42) 的意思是“查找编号 42 的房间”；return 把结果交回调用处。', question:'函数能正常返回，为什么还需要“插桩”？',
     paragraphs:[
@@ -110,10 +111,10 @@ export const zeroSteps = [
     takeaway:'你接下来的目标是理解“怎样接对父节点”，而不只是“有没有相同的 ID”。',
     destination:{label:'进入正式课程：一步步跟随构建 →',href:'#/learn/orientation'}
   }
-];
+], 'zero');
 
-export const zeroSources = [
+export const zeroSources = localizeData([
   {title:'Go 官方：代码、包与模块的组织',url:'https://go.dev/doc/code'},
   {title:'Go 官方：管理依赖',url:'https://go.dev/doc/modules/managing-dependencies'},
   {title:'固定版本：依赖准备的真实实现',url:'https://github.com/alibaba/loongsuite-go/blob/cac400935add57d8219122ba32857b8f55ac6eb1/tool/preprocess/add.go'}
-];
+], 'zero');

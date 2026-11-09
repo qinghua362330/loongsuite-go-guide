@@ -1,3 +1,4 @@
+import { localizeData } from './i18n.js';
 // Small, deliberately named teaching modules; these are not built-in plugins.
 const prepPanel=(label,text,state='active')=>({label,items:[{text,state}]});
 const prepFrame=(title,explain,why,focus,label,text,highlight,panels,result)=>({title,explain,why,focus,code:{label,language:'go',text,highlight},panels,result});
@@ -14,7 +15,7 @@ const prepFrames=[
 const stopOne=prepFrame('试着只做一轮：缺了 room-recorder','第 1 轮是“准备基础库 → 匹配出 room 规则”。循环结束时，room 记录包还没有经过依赖准备。','newDeps 在 matchRules 前面执行；本轮新选出的规则，只能在下一轮才被 newDeps 处理。',1,'把循环展开成实际顺序 · 伪代码','newDeps([])\nsyncDeps()\nB1 = matchRules()\n// 在这里停止：没有 newDeps(B1)',[3,4],[prepPanel('选中的规则','room 规则','ok'),prepPanel('应有的配套代码','room-recorder 未准备','error'),prepPanel('假如继续构建','观察代码的依赖不完整','error')],'只做 1 轮，在这个例子里连第一次匹配的结果都还没准备。这里展示条件缺口，不是复制某次真实编译报错。');
 const stopTwo=prepFrame('试着只做两轮：缺了 cache-recorder','第二轮把 room-recorder 带入，再发现 cache 规则，但 cache-recorder 还没准备。','再匹配得到的清单 B2，需要匹配之后的 newDeps(B2) 才能落实到构建输入里。',3,'把两轮展开 · 伪代码','newDeps([]); syncDeps()\nB1 = matchRules()\nnewDeps(B1); syncDeps()\nB2 = matchRules()\n// 在这里停止：没有 newDeps(B2)',[4,5],[prepPanel('已准备','room-recorder','ok'),prepPanel('最终新增的配套包','cache-recorder 未准备','error'),prepPanel('缺少的步骤','第三次准备与同步','error')],'如果第二次匹配没有任何相关变化，有的项目两轮可能就够；当前代码没有做这种提前结束的判断。');
 
-export const focusDemos={
+export const focusDemos=localizeData({
   preprocess:{
     title:'为什么是三轮？让一个房间查询亲自走一遍',
     scenario:'你要自动观察 FindRoom(42)。我们设置两条教学自定义规则：room 的记录包会调用 cache，而 cache 也有自己的记录包。先选“完整三轮”，每次点下一步，关注黄色标出的新增内容。',
@@ -39,4 +40,4 @@ export const focusDemos={
     ],verdict:'工具是加工者；记录包是要进入业务产物的代码。二者的依赖范围不同，所以需要给业务构建补材料。'}],
     question:{prompt:'写了记录包的 import 后，是否就代表目标函数会自动产生 Span？',options:['是，import 自带插桩能力','还不够，还要规则命中、改写和运行时记录','只需要再生成一个 Trace ID'],answer:1,explanation:'import 负责把代码接入构建范围。目标函数还需要命中规则并成功接入调用；运行时也要有正确的记录和上报配置。'}
   }
-};
+}, 'preprocessDemos');

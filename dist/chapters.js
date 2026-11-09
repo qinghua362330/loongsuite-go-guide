@@ -1,3 +1,4 @@
+import { localizeData } from './i18n.js';
 const upstream = 'https://github.com/alibaba/loongsuite-go/tree/cac400935add57d8219122ba32857b8f55ac6eb1';
 const docs = `${upstream}/docs`;
 
@@ -5,7 +6,7 @@ const q = (question, options, answer, explanation) => ({ q: question, options, a
 const sec = (title, paragraphs, code, language, note) => ({ title, paragraphs, ...(code ? { code, language } : {}), ...(note ? { note } : {}) });
 const walk = (file, symbol, task, url = `${upstream}/${file}`) => ({ file, symbol, task, url });
 
-export const chapters = [
+export const chapters = localizeData([
   {
     id: 'orientation', title: '从一个普通 Go 函数开始：为什么需要插桩', subtitle: '先会跑一个小程序，再逐步理解 package、module、构建和观测', stage: '基础', minutes: 55, prerequisites: ['会读最基本的 Go 函数：func、参数、返回值和调用'],
     bridge: { known: '你会读并调用普通 Go 函数。', problem: '函数只给结果，调用过程、耗时和错误不容易看见。', idea: '先手动记录，再理解编译期工具如何按规则自动加记录点。', terms: [{ term: 'package', meaning: '一起编译的一组 Go 文件' }, { term: 'module', meaning: '有名字、可被依赖的一组 package' }, { term: 'binary', meaning: '编译后可直接运行的程序' }], takeaway: '先看懂源代码怎样变成程序，才知道插桩插在哪里。' },
@@ -207,7 +208,7 @@ export const chapters = [
     quiz: [q('一个自动规则已在本地生成 Span，提交前哪组证据才能支持“兼容已有 OTel”？', ['一张后端 Trace 截图即可，编译和重复性无需记录', '规则命中、生成源码、父子拓扑、已有 wrapper 去重、provider/导出和回滚结果', '只跑普通 go build，因为运行时拓扑由 SDK 自动保证'], 1, '兼容同时跨编译期和运行时；单张截图无法证明去重、配置沿用或回滚，普通编译也不验证 hook。'), q('目标库新版本只改变了函数签名，最安全的规则演进方式是什么？', ['放宽参数/receiver 匹配到任意形式，减少维护量', '沿用旧规则并寄希望于 trampoline 自动适配', '新增精确版本区间和 fixture，保留旧规则并分别验证'], 2, '签名变化会影响生成调用和返回值，精确隔离可避免误匹配；宽泛匹配和自动适配都会隐藏 ABI/语义差异。')],
     checkpoint: ['能独立完成一个规则从设计到测试的闭环', '能解释并证明不会重复现有入口埋点', '能在报告中明确自动插桩、网关、消息和业务代码的责任边界'], sources: [{ title: 'Adding rules', url: `${upstream}/docs/how-to-add-a-new-rule.md` }, { title: 'LoongSuite Go upstream', url: upstream }], visual: 'coverage'
   }
-];
+], 'chapters');
 
 export const courseMeta = {
   title: 'LoongSuite Go：从 Go 基础到编译期插桩二开',

@@ -1,20 +1,21 @@
 // 对照官方文档阅读：顺序与标题跟随 https://alibaba.github.io/loongsuite-go/ 的中文侧栏。
 // 摘要用本指南自己的话写，不复制官方正文；官方页面才是用法与参数的权威来源。
+import { isEnglish, localizeData, t } from './i18n.js';
 
-export const officialSite = {
+export const officialSite = localizeData({
   base: 'https://alibaba.github.io/loongsuite-go/',
   checked: '2026-10-29',
   mainCommit: '9576e3840ff9cbf58f593fef8dd01a3439d61cc8',
   diffNote: '核对日 `main` 与固定版本 v1.15.0 的 `docs/` 只有一处差异：支持库表中 zap 的仓库链接写法。工具行为仍以固定版本源码为准。'
-};
+}, 'official');
 
-export const coverageLabels = {
+export const coverageLabels = localizeData({
   deep: ['本指南详细展开', '有动画、源码定位和实验'],
   partial: ['本指南部分覆盖', '讲了原理，参数与清单以官方为准'],
   official: ['以官方为准', '本指南只给阅读提示，尚未展开']
-};
+}, 'official');
 
-export const officialGroups = [
+export const officialGroups = localizeData([
   {id: 'user', title: '用户指南', en: 'User Guide', pages: [
     {id: 'user-index', title: '概述与快速开始', path: 'zh/', coverage: 'deep',
       says: '安装 `otel` 工具，在 `go build` 前加上 `otel` 前缀即可构建出带 OpenTelemetry 观察能力的程序；官方附有 demo、nethttp、kafka 等示例。',
@@ -135,19 +136,19 @@ export const officialGroups = [
       question: '没有 OnExit hook 时，为什么不直接删掉整个 `else` 块？',
       answer: '同一函数可能有多个 tjump，后面的嵌套在 `else` 块里；官方的做法是把 `defer` 换成空语句。'},
     {id: 'hack-debug', title: '调试', path: 'zh/hacking/debug.html', coverage: 'partial',
-      says: '`otel set -debug` 构建未优化的二进制并保留临时文件，`-verbose` 输出详细过程；`.otel-build` 里保存注入代码、原文件备份和匹配到的规则。',
+      says: '`otel set -debug` 构建未优化的二进制并保留临时文件，`-verbose` 输出详细过程；`.otel-build` 里保存注入代码、原文件备份和匹配到的规则。官方目录树中的匹配结果文件名与源码不一致，见下方自测。',
       gap: '先确认问题在哪一层：规则没命中、代码没注入、hook 没执行，还是数据没导出。不同层看不同证据。',
       read: [['调试与验证：从“没 Span”定位到具体层', '#/learn/debugging'], ['从 otel go build 到目标二进制：动手读日志', '#/learn/build'], ['实验 04：普通与插桩输出对照', '#/labs']],
       question: '怀疑规则没有命中，先看 `.otel-build` 里的哪个文件？',
-      answer: '`preprocess/matched_rules.json`，它记录预处理阶段匹配到的规则。'}
+      answer: '`.otel-build/matched.json`。注意：官方页面目录树写的是 `preprocess/matched_rules.json`，但 v1.15.0 与当前 `main` 源码（`tool/util/shared.go` 的 `GetMatchedRuleFile`）实际读写的是 `matched.json`，实验 04 的真实运行也在这里找到了自定义规则。'}
   ]}
-];
+], 'official');
 
 export const officialFirstPath = ['user-index', 'hack-overview', 'hack-preprocess', 'hack-instrument', 'dev-rule-types', 'dev-register', 'dev-hook', 'hack-debug'];
 
 export const officialPages = officialGroups.flatMap(g => g.pages.map(p => ({...p, group: g})));
 
-export const officialUrl = p => officialSite.base + p.path;
+export const officialUrl = p => officialSite.base + (isEnglish ? p.path.replace(/^zh\//, '') : p.path);
 
 export function renderOfficialPage(id, {inline, escape}) {
   const index = Math.max(0, officialPages.findIndex(p => p.id === id));
@@ -157,6 +158,6 @@ export function renderOfficialPage(id, {inline, escape}) {
     const page = officialPages.find(x => x.id === pid);
     return `<a class="tag" href="#/official/${pid}">${i + 1}. ${escape(page.group.title)} · ${escape(page.title)}</a>`;
   }).join('');
-  const list = officialGroups.map(g => `<div class="nav-label">${escape(g.title)} · ${escape(g.en)}</div>${g.pages.map(x => `<a class="source-item ${x.id === p.id ? 'active' : ''}" href="#/official/${x.id}" ${x.id === p.id ? 'aria-current="page"' : ''}><span class="num">${String(officialPages.findIndex(y => y.id === x.id) + 1).padStart(2, '0')}</span><span>${escape(x.title)}<small>${escape(coverageLabels[x.coverage][0])}</small></span></a>`).join('')}`).join('');
-  return `<header class="source-intro"><div class="eyebrow">对照官方文档 / 官方说“怎么用”，这里补“为什么”</div><h1>跟着官方文档读，每页接上例子与源码。</h1><p class="source-plain">左边按 <a href="${escape(officialSite.base)}zh/" target="_blank" rel="noopener noreferrer">LoongSuite Go 官方文档</a> 的侧栏顺序排列。建议把官方页面和这里并排打开：先读官方原文，再按“在本指南中接着读”的顺序看例子、动画和源码。</p><div class="toolbar"><a class="btn" href="${escape(officialUrl(p))}" target="_blank" rel="noopener noreferrer">打开官方原文 ↗</a><a class="btn light" href="${escape(officialSite.base)}" target="_blank" rel="noopener noreferrer">English docs ↗</a></div><div class="callout"><b>版本对应：</b>官方文档随 <code>main</code> 更新，本指南源码固定 v1.15.0。${inline(officialSite.diffNote)}核对日期 ${escape(officialSite.checked)}，<code>main</code> 提交 <code>${escape(officialSite.mainCommit.slice(0, 7))}</code>。</div><p><b>第一次读，想弄懂原理：</b></p><p>${firstPath}</p></header><div class="source-layout"><nav class="source-list" aria-label="官方文档目录">${list}</nav><article class="source-detail"><div class="eyebrow">${escape(p.group.title)} · ${escape(coverage)}</div><h2>${escape(p.title)}</h2><p class="source-path"><a href="${escape(officialUrl(p))}" target="_blank" rel="noopener noreferrer">${escape(officialUrl(p))} ↗</a></p><section class="article-section"><h3>官方这页讲什么</h3><p>${inline(p.says)}</p></section><section class="article-section"><h3>初学者容易卡在哪里</h3><p>${inline(p.gap)}</p></section><section class="article-section"><h3>在本指南中接着读</h3><p class="source-path" style="border:0;padding:0;margin:0 0 8px">${escape(coverageDetail)}</p><ol>${p.read.map(([label, href]) => `<li><a href="${escape(href)}">${escape(label)}</a></li>`).join('')}</ol></section><section class="article-section"><h3>读完自测</h3><details><summary>${inline(p.question)}</summary><p>${inline(p.answer)}</p></details></section><nav class="prev-next" aria-label="官方文档上一页与下一页">${prev ? `<a href="#/official/${prev.id}">← ${escape(prev.group.title)} · ${escape(prev.title)}</a>` : '<span></span>'}${next ? `<a href="#/official/${next.id}">${escape(next.group.title)} · ${escape(next.title)} →</a>` : '<span></span>'}</nav></article></div>`;
+  const list = officialGroups.map(g => `<div class="nav-label">${escape(g.title)}${isEnglish?'':` · ${escape(g.en)}`}</div>${g.pages.map(x => `<a class="source-item ${x.id === p.id ? 'active' : ''}" href="#/official/${x.id}" ${x.id === p.id ? 'aria-current="page"' : ''}><span class="num">${String(officialPages.findIndex(y => y.id === x.id) + 1).padStart(2, '0')}</span><span>${escape(x.title)}<small>${escape(coverageLabels[x.coverage][0])}</small></span></a>`).join('')}`).join('');
+  return `<header class="source-intro"><div class="eyebrow">${t('对照官方文档 / 官方说“怎么用”，这里补“为什么”','Alongside the official docs / they explain “how”; this guide adds “why”')}</div><h1>${t('跟着官方文档读，每页接上例子与源码。','Read with the official docs; every page connects to examples and source.')}</h1><p class="source-plain">${t('左边按','The list follows the sidebar order of ')}<a href="${escape(officialSite.base)}${isEnglish?'':'zh/'}" target="_blank" rel="noopener noreferrer">LoongSuite Go ${t('官方文档','official docs')}</a>${t('的侧栏顺序排列。建议把官方页面和这里并排打开：先读官方原文，再按“在本指南中接着读”的顺序看例子、动画和源码。','. Open the official page beside this guide: read the original first, then follow “continue in this guide” through examples, diagrams, and source.')}</p><div class="toolbar"><a class="btn" href="${escape(officialUrl(p))}" target="_blank" rel="noopener noreferrer">${t('打开官方原文 ↗','Open official page ↗')}</a><a class="btn light" href="${escape(officialSite.base)}" target="_blank" rel="noopener noreferrer">English docs ↗</a></div><div class="callout"><b>${t('版本对应：','Version alignment:')}</b>${t('官方文档随','The official docs follow ')}<code>main</code>${t('更新，本指南源码固定 v1.15.0。','; this guide is pinned to source v1.15.0.')} ${inline(officialSite.diffNote)}${t('核对日期','Checked ')}${escape(officialSite.checked)}${t('，',', ')}<code>main</code>${t('提交',' commit ')}<code>${escape(officialSite.mainCommit.slice(0, 7))}</code>${t('。','.')}</div><p><b>${t('第一次读，想弄懂原理：','For a first pass focused on principles:')}</b></p><p>${firstPath}</p></header><div class="source-layout"><nav class="source-list" aria-label="${t('官方文档目录','Official documentation')}" >${list}</nav><article class="source-detail"><div class="eyebrow">${escape(p.group.title)} · ${escape(coverage)}</div><h2>${escape(p.title)}</h2><p class="source-path"><a href="${escape(officialUrl(p))}" target="_blank" rel="noopener noreferrer">${escape(officialUrl(p))} ↗</a></p><section class="article-section"><h3>${t('官方这页讲什么','What this official page covers')}</h3><p>${inline(p.says)}</p></section><section class="article-section"><h3>${t('初学者容易卡在哪里','Where beginners often get stuck')}</h3><p>${inline(p.gap)}</p></section><section class="article-section"><h3>${t('在本指南中接着读','Continue in this guide')}</h3><p class="source-path" style="border:0;padding:0;margin:0 0 8px">${escape(coverageDetail)}</p><ol>${p.read.map(([label, href]) => `<li><a href="${escape(href)}">${escape(label)}</a></li>`).join('')}</ol></section><section class="article-section"><h3>${t('读完自测','Check your understanding')}</h3><details><summary>${inline(p.question)}</summary><p>${inline(p.answer)}</p></details></section><nav class="prev-next" aria-label="${t('官方文档上一页与下一页','Previous and next official pages')}">${prev ? `<a href="#/official/${prev.id}">← ${escape(prev.group.title)} · ${escape(prev.title)}</a>` : '<span></span>'}${next ? `<a href="#/official/${next.id}">${escape(next.group.title)} · ${escape(next.title)} →</a>` : '<span></span>'}</nav></article></div>`;
 }
